@@ -21,11 +21,16 @@ import (
 	"context"
 	"time"
 	"log"
+	"fmt"
 
 	mgmt "github.com/Azure/azure-sdk-for-go/services/eventhub/mgmt/2017-04-01/eventhub"
 	"github.com/Azure/go-autorest/autorest/azure"
 
 	azauth "github.com/Azure/go-autorest/autorest/azure/auth"
+
+	"github.com/Azure/azure-amqp-common-go/v3/aad"
+
+	"github.com/Azure/azure-event-hubs-go/v3"
 )
 
 const (
@@ -44,6 +49,45 @@ func RegisterNode() {
 	_, err = ensureEventHub(ctx, hubname)
 	if err != nil {
 		panic(err)
+	}
+
+}
+
+func ListenToHub() {
+	hub, partitions := initHub()
+	exit := make(chan struct{})
+
+	handler := func(ctx context.Context, event *eventhub.Event) error {
+		text := string(event.Data)
+		if text == "exit\n" {
+			fmt.Println("Oh snap!! Someone told me to exit!")
+			exit <- *new(struct{})
+		} else {
+			fmt.Println(string(event.Data))
+		}
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	for _, partitionID := range partitions {
+		_, err := hub.Receive(ctx, partitionID, handler, eventhub.ReceiveWithLatestOffset())
+		if err != nil {
+			fmt.Println("Error: ", err)
+			return
+		}
+	}
+	cancel()
+
+	fmt.Println("I am listening...")
+
+	select {
+	case <-exit:
+		fmt.Println("closing after 2 seconds")
+		select {
+		case <-time.After(2 * time.Second):
+			return
+		}
 	}
 
 }
@@ -89,6 +133,28 @@ func ensureEventHub(ctx context.Context, name string) (*mgmt.Model, error) {
 		}
 	}
 	return &hub, nil
+}
+
+func initHub() (*eventhub.Hub, []string) {
+	namespace := mustGetenv("EVENTHUB_NAMESPACE")
+	hubname, err := os.Hostname()
+	if err != nil {
+		panic(err)
+	}
+	hubMgmt, err := ensureEventHub(context.Background(), hubname)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	provider, err := aad.NewJWTProvider(aad.JWTProviderWithEnvironmentVars())
+	if err != nil {
+		log.Fatal(err)
+	}
+	hub, err := eventhub.NewHub(namespace, hubname, provider)
+	if err != nil {
+		panic(err)
+	}
+	return hub, *hubMgmt.PartitionIds
 }
 
 // provider, err := sas.NewTokenProvider(sas.TokenProviderWithEnvironmentVars())

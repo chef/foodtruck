@@ -2,15 +2,20 @@
 
 ## Required Environment Variables
 
-`AZURE_TENANT_ID`
-`AZURE_CLIENT_ID`
-`AZURE_CLIENT_SECRET`
-`AZURE_SUBSCRIPTION_ID`
-`EVENTHUB_NAMESPACE`
+```
+AZURE_TENANT_ID
+AZURE_CLIENT_ID
+AZURE_CLIENT_SECRET
+AZURE_SUBSCRIPTION_ID
+EVENTHUB_NAMESPACE
+```
 
-## azeventhub
+## Connectors
 
-### azure-event-hubs
+These are the specific implementations of the connector interface.
+Connectors are used to connect foodtruck to its data sources.
+
+### azeventhub
 
 **IMPORTANT**
 An assumption is made prior to running this code that an Eventhub namespace is deployed in Azure and the proper environment variables are set.
@@ -29,3 +34,7 @@ An assumption is made prior to running this code that an Eventhub namespace is d
 
 - Listens to the hub created from RegisterNode
 
+## Providers
+
+These are the specific implementations of the provider interface.
+Providers are used by foodtruck to perform actions on the running node.

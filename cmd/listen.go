@@ -17,8 +17,8 @@ limitations under the License.
 package cmd
 
 import (
+	"github.com/chef/foodtruck/connectors/azeventhub"
 	"github.com/spf13/cobra"
-	"github.com/chef/foodtruck/azeventhub"
 )
 
 // listenCmd represents the listen command

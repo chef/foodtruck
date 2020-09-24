@@ -12,4 +12,5 @@ require (
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/viper v1.7.1
   github.com/spf13/afero v1.4.0
+  github.com/fsnotify/fsnotify v1.4.9
 )

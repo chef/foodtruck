@@ -17,11 +17,12 @@ limitations under the License.
 package azeventhub
 
 import (
-	"os"
 	"context"
-	"time"
-	"log"
 	"fmt"
+	"log"
+	"os"
+	"strings"
+	"time"
 
 	mgmt "github.com/Azure/azure-sdk-for-go/services/eventhub/mgmt/2017-04-01/eventhub"
 	"github.com/Azure/go-autorest/autorest/azure"
@@ -30,196 +31,159 @@ import (
 
 	"github.com/Azure/azure-amqp-common-go/v3/aad"
 
-	"github.com/Azure/azure-event-hubs-go/v3"
+	eventhub "github.com/Azure/azure-event-hubs-go/v3"
 )
 
 const (
-	Location          = "eastus2"
-	ResourceGroupName = "foodtruck-poc"
+	Location = "eastus2"
 )
 
-func RegisterNode() {
-	hubname, err := os.Hostname()
-	if err != nil {
-		panic(err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-	_, err = ensureEventHub(ctx, hubname)
-	if err != nil {
-		panic(err)
-	}
-
+type azureEventHub struct {
+	client                  *eventhub.Hub
+	mgmtClient              *mgmt.EventHubsClient
+	partitionIDs            []string
+	partitionCount          int64
+	messageRetentionInDays  int64
+	hubname                 string
+	env                     map[string]string
+	resourceManagerEndpoint string
 }
 
-func ListenToHub() {
-	hub, partitions := initHub()
-	exit := make(chan struct{})
+// NewAzureEventHub creates a new Azure Event Hub Object.
+func NewAzureEventHub(partitionCount, messageRetentionInDays int64) *azureEventHub {
+	fmt.Println("Creating new Azure Event Hubs Client...")
+	az := new(azureEventHub)
+	az.env = make(map[string]string)
+	az.resourceManagerEndpoint = azure.PublicCloud.ResourceManagerEndpoint
+	az.partitionCount = partitionCount
+	az.messageRetentionInDays = messageRetentionInDays
+
+	az.getEnvVars()
+	az.mgmtClient = az.getEventHubMgmtClient()
+
+	return az
+}
+
+func (az *azureEventHub) getEnvVars() {
+	fmt.Println("Validating Environment Variables...")
+	reqEnvVars := []string{
+		"AZURE_TENANT_ID",
+		"AZURE_CLIENT_ID",
+		"AZURE_CLIENT_SECRET",
+		"AZURE_SUBSCRIPTION_ID",
+		"AZURE_EVENTHUB_LOCATION",
+		"AZURE_EVENTHUB_RESOURCEGROUP",
+		"AZURE_EVENTHUB_NAMESPACE",
+	}
+	missingEnvVars := make([]string, 0, 10)
+
+	for _, key := range reqEnvVars {
+		v := os.Getenv(key)
+		if v == "" {
+			// fmt.Println("Missing: " + key)
+			missingEnvVars = append(missingEnvVars, key)
+		} else {
+			// fmt.Println("Found: " + key)
+			az.env[key] = v
+		}
+	}
+	// fmt.Printf("Length: %d\n", len(missingEnvVars))
+	if len(missingEnvVars) > 0 {
+		panic("Required Environment Variables are missing: " + strings.Join(missingEnvVars, ", "))
+	}
+}
+
+func (az *azureEventHub) getEventHubMgmtClient() *mgmt.EventHubsClient {
+	// fmt.Println("Creating new Azure Event Hubs Management Client in: ")
+	// fmt.Println("  Subscription ID: " + az.env["AZURE_SUBSCRIPTION_ID"])
+	// fmt.Println("  Endpoint: ", az.resourceManagerEndpoint)
+	mgmtClient := mgmt.NewEventHubsClientWithBaseURI(az.resourceManagerEndpoint, az.env["AZURE_SUBSCRIPTION_ID"])
+	// fmt.Println("BaseURI: " + mgmtClient.BaseURI)
+	a, err := azauth.NewAuthorizerFromEnvironment()
+	if err != nil {
+		log.Fatal(err)
+	}
+	mgmtClient.Authorizer = a
+	return &mgmtClient
+}
+
+func (az *azureEventHub) Register(hubname string) error {
+	az.hubname = hubname
+	fmt.Println("Registering hub with name " + az.hubname)
+
+	hubModel, err := az.mgmtClient.Get(context.Background(), az.env["AZURE_EVENTHUB_RESOURCEGROUP"], az.env["AZURE_EVENTHUB_NAMESPACE"], az.hubname)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		newHub := &mgmt.Model{
+			Name: &az.hubname,
+			Properties: &mgmt.Properties{
+				PartitionCount:         &az.partitionCount,
+				MessageRetentionInDays: &az.messageRetentionInDays,
+			},
+		}
+		// fmt.Printf("Model::Name %v\n", *newHub.Name)
+		// fmt.Printf("Model::ParitionCount %v\n", *newHub.Properties.PartitionCount)
+		// fmt.Printf("Model::MessageRetentionInDays %v\n", *newHub.Properties.MessageRetentionInDays)
+
+		hubModel, err = az.mgmtClient.CreateOrUpdate(context.Background(), az.env["AZURE_EVENTHUB_RESOURCEGROUP"], az.env["AZURE_EVENTHUB_NAMESPACE"], az.hubname, *newHub)
+		if err != nil {
+			return err
+		}
+	}
+
+	// fmt.Println("Set PartitionIDs")
+	// fmt.Printf("Partition IDs: %v", *hubModel.PartitionIds)
+	az.partitionIDs = *hubModel.PartitionIds
+
+	// fmt.Println("Get Provider")
+	provider, err := aad.NewJWTProvider(aad.JWTProviderWithEnvironmentVars())
+	if err != nil {
+		return err
+	}
+	// fmt.Println("Get Hub Client")
+	hub, err := eventhub.NewHub(az.env["AZURE_EVENTHUB_NAMESPACE"], hubname, provider)
+	if err != nil {
+		return err
+	}
+	az.client = hub
+	return nil
+}
+
+func (az *azureEventHub) StartListener() (chan []byte, error) {
+	fmt.Println("Starting Listener...")
+	events := make(chan []byte)
 
 	handler := func(ctx context.Context, event *eventhub.Event) error {
-		text := string(event.Data)
-		if text == "exit\n" {
-			fmt.Println("Oh snap!! Someone told me to exit!")
-			exit <- *new(struct{})
-		} else {
-			fmt.Println(string(event.Data))
-		}
+		events <- event.Data
 		return nil
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	for _, partitionID := range partitions {
-		_, err := hub.Receive(ctx, partitionID, handler, eventhub.ReceiveWithLatestOffset())
-		if err != nil {
-			fmt.Println("Error: ", err)
-			return
-		}
-	}
-	cancel()
-
-	fmt.Println("I am listening...")
-
-	select {
-	case <-exit:
-		fmt.Println("closing after 2 seconds")
-		select {
-		case <-time.After(2 * time.Second):
-			return
-		}
-	}
-
-}
-
-func mustGetenv(key string) string {
-	v := os.Getenv(key)
-	if v == "" {
-		panic("Environment variable '" + key + "' required for integration tests.")
-	}
-	return v
-}
-
-func getEventHubMgmtClient() *mgmt.EventHubsClient {
-	subID := mustGetenv("AZURE_SUBSCRIPTION_ID")
-	client := mgmt.NewEventHubsClientWithBaseURI(azure.PublicCloud.ResourceManagerEndpoint, subID)
-	a, err := azauth.NewAuthorizerFromEnvironment()
-	if err != nil {
-		log.Fatal(err)
-	}
-	client.Authorizer = a
-	return &client
-}
-
-func ensureEventHub(ctx context.Context, name string) (*mgmt.Model, error) {
-	namespace := mustGetenv("EVENTHUB_NAMESPACE")
-	client := getEventHubMgmtClient()
-	hub, err := client.Get(ctx, ResourceGroupName, namespace, name)
-
-	partitionCount := int64(2)
-	messageRetentionInDays := int64(1)
-	if err != nil {
-		newHub := &mgmt.Model{
-			Name: &name,
-			Properties: &mgmt.Properties{
-				PartitionCount: &partitionCount,
-				MessageRetentionInDays: &messageRetentionInDays,
-			},
-		}
-
-		hub, err = client.CreateOrUpdate(ctx, ResourceGroupName, namespace, name, *newHub)
+	for _, partitionID := range az.partitionIDs {
+		_, err := az.client.Receive(ctx, partitionID, handler, eventhub.ReceiveWithLatestOffset())
 		if err != nil {
 			return nil, err
 		}
 	}
-	return &hub, nil
+	cancel()
+
+	fmt.Println("Azure Event Hub Listener Started :: Listening to: " + az.hubname)
+	return events, nil
 }
 
-func initHub() (*eventhub.Hub, []string) {
-	namespace := mustGetenv("EVENTHUB_NAMESPACE")
-	hubname, err := os.Hostname()
-	if err != nil {
-		panic(err)
-	}
-	hubMgmt, err := ensureEventHub(context.Background(), hubname)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	provider, err := aad.NewJWTProvider(aad.JWTProviderWithEnvironmentVars())
-	if err != nil {
-		log.Fatal(err)
-	}
-	hub, err := eventhub.NewHub(namespace, hubname, provider)
-	if err != nil {
-		panic(err)
-	}
-	return hub, *hubMgmt.PartitionIds
+func (az *azureEventHub) StopListener() error {
+	return nil
 }
 
-// provider, err := sas.NewTokenProvider(sas.TokenProviderWithEnvironmentVars())
-// if err != nil {
-// 	fmt.Println(err)
-// 	return
-// }
-// ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-// hubMgmt, err := ensureEventHub(context.Background(), hostname)
-// if err != nil {
-// 	log.Fatal(err)
-// }
+func (az *azureEventHub) Deregister() error {
+	return nil
+}
 
-// hub, err := eventhubs.NewHub("foodtruck", hostname, provider)
+func (az *azureEventHub) SendOrder(order []byte) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	err := az.client.Send(ctx, eventhub.NewEvent(order))
 
-// defer hub.Close(ctx)
-// defer cancel()
-// if err != nil {
-// 	log.Fatalf("failed to get hub %s\n", err)
-// }
-
-// ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-// defer cancel()
-
-// // send a single message into a random partition
-// err = hub.Send(ctx, eventhub.NewEventFromString("hello, world!"))
-// if err != nil {
-// 	fmt.Println(err)
-// 	return
-// }
-
-// handler := func(c context.Context, event *eventhub.Event) error {
-// 	fmt.Println("Handler!")
-// 	fmt.Println(string(event.Data))
-// 	return nil
-// }
-
-// // listen to each partition of the Event Hub
-// runtimeInfo, err := hub.GetRuntimeInformation(ctx)
-// if err != nil {
-// 	fmt.Println(err)
-// 	return
-// }
-
-// for _, partitionID := range runtimeInfo.PartitionIDs {
-// 	// Start receiving messages
-// 	//
-// 	// Receive blocks while attempting to connect to hub, then runs until listenerHandle.Close() is called
-// 	// <- listenerHandle.Done() signals listener has stopped
-// 	// listenerHandle.Err() provides the last error the receiver encountered
-// 	// listenerHandle
-// 	_, err := hub.Receive(ctx, partitionID, handler, eventhub.ReceiveWithStartingOffset(offset))
-// 	if err != nil {
-// 		fmt.Println(err)
-// 		return
-// 	}
-// 	fmt.Println("Receive!")
-// }
-
-// // Wait for a signal to quit:
-// signalChan := make(chan os.Signal, 1)
-// signal.Notify(signalChan, os.Interrupt, os.Kill)
-// <-signalChan
-
-// err = hub.Close(context.Background())
-// if err != nil {
-// 	fmt.Println(err)
-// }
+	return err
+}

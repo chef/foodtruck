@@ -16,6 +16,7 @@ limitations under the License.
 package foodtruck
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -25,10 +26,10 @@ import (
 
 type Connector interface {
 	Register(string) error
-	StartListener() (chan string, error)
+	StartListener() (chan []byte, error)
 	StopListener() error
 	Deregister() error
-	SendOrder(order string) error
+	SendOrder(order []byte) error
 }
 
 type Provider interface {
@@ -73,13 +74,34 @@ func Listen() {
 	if err != nil {
 		panic(err)
 	}
-	o := <-orders
+	for {
+		o := <-orders
+		receive(o)
+	}
+}
 
-	fmt.Println(o)
+func receive(o []byte) {
+	order := Order{}
+	json.Unmarshal(o, &order)
+	fmt.Printf("Order %v Received! ", order.ID)
 }
 
 func Send() {
-	err := c.SendOrder("This is a test")
+	order := Order{
+		ID:       "1",
+		Provider: "Chef",
+		Policy:   "Policy Archive Location!",
+		Change: Change{
+			Ticket:      "abc123",
+			WindowStart: time.Now(),
+			WindowStop:  time.Date(2020, 12, 31, 0, 0, 0, 0, time.Local),
+		},
+	}
+	jsonOrder, err := json.Marshal(order)
+	if err != nil {
+		panic(err)
+	}
+	err = c.SendOrder(jsonOrder)
 	if err != nil {
 		panic(err)
 	}

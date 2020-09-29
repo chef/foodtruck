@@ -149,12 +149,12 @@ func (az *azureEventHub) Register(hubname string) error {
 	return nil
 }
 
-func (az *azureEventHub) StartListener() (chan string, error) {
+func (az *azureEventHub) StartListener() (chan []byte, error) {
 	fmt.Println("Starting Listener...")
-	events := make(chan string)
+	events := make(chan []byte)
 
 	handler := func(ctx context.Context, event *eventhub.Event) error {
-		events <- string(event.Data)
+		events <- event.Data
 		return nil
 	}
 
@@ -180,10 +180,10 @@ func (az *azureEventHub) Deregister() error {
 	return nil
 }
 
-func (az *azureEventHub) SendOrder(order string) error {
+func (az *azureEventHub) SendOrder(order []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	err := az.client.Send(ctx, eventhub.NewEventFromString(order))
+	err := az.client.Send(ctx, eventhub.NewEvent(order))
 
 	return err
 }

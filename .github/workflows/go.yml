@@ -34,18 +34,18 @@ jobs:
       run: go test -v .
     
     - name: Build - Linux
-      run: env GOOS=linux GOARCH=amd64 go build -v . -o foodtruck-linux-amd64
+      run: env GOOS=linux GOARCH=amd64 go build -v -o foodtruck-linux-amd64 .
 
     - name: Build - Windows
-      run: env GOOS=windows GOARCH=amd64 go build -v . -o foodtruck-windows-amd64
+      run: env GOOS=windows GOARCH=amd64 go build -v -o foodtruck-windows-amd64 .
 
     - name: Build - MacOS
-      run: env GOOS=darwin GOARCH=amd64 go build -v . -o foodtruck-darwin-amd64
+      run: env GOOS=darwin GOARCH=amd64 go build -v -o foodtruck-darwin-amd64 .
 
     - name: Build - Solaris
-      run: env GOOS=solaris GOARCH=amd64 go build -v . -o foodtruck-solaris-amd64
+      run: env GOOS=solaris GOARCH=amd64 go build -v -o foodtruck-solaris-amd64 .
 
     - name: Build - AIX
-      run: env GOOS=aix GOARCH=ppc64 go build -v . -o foodtruck-aix-ppc64
+      run: env GOOS=aix GOARCH=ppc64 go build -v -o foodtruck-aix-ppc64 .
     
 

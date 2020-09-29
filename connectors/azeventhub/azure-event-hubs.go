@@ -180,6 +180,10 @@ func (az *azureEventHub) Deregister() error {
 	return nil
 }
 
-func (az *azureEventHub) SendOrder(targetQueue string, order string) error {
-	return nil
+func (az *azureEventHub) SendOrder(order string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	err := az.client.Send(ctx, eventhub.NewEventFromString(order))
+
+	return err
 }

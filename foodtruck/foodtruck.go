@@ -16,6 +16,7 @@ limitations under the License.
 package foodtruck
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -27,7 +28,7 @@ type Connector interface {
 	StartListener() (chan string, error)
 	StopListener() error
 	Deregister() error
-	SendOrder(targetQueue string, order string) error
+	SendOrder(order string) error
 }
 
 type Provider interface {
@@ -72,6 +73,14 @@ func Listen() {
 	if err != nil {
 		panic(err)
 	}
-	<-orders
+	o := <-orders
 
+	fmt.Println(o)
+}
+
+func Send() {
+	err := c.SendOrder("This is a test")
+	if err != nil {
+		panic(err)
+	}
 }

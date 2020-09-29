@@ -1,5 +1,8 @@
 # Foodtruck
 
+![Build](https://github.com/chef/foodtruck/workflows/Go/badge.svg)
+
+
 ## Required Environment Variables
 
 ```
@@ -7,7 +10,9 @@ AZURE_TENANT_ID
 AZURE_CLIENT_ID
 AZURE_CLIENT_SECRET
 AZURE_SUBSCRIPTION_ID
-EVENTHUB_NAMESPACE
+AZURE_EVENTHUB_LOCATION
+AZURE_EVENTHUB_RESOURCEGROUP
+AZURE_EVENTHUB_NAMESPACE
 ```
 
 ## Connectors

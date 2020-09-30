@@ -22,7 +22,10 @@ import (
 	"time"
 
 	"github.com/chef/foodtruck/connectors/azeventhub"
+
 	"github.com/chef/foodtruck/providers/chefinfra"
+	"github.com/chef/foodtruck/providers/chefinspec"
+	"github.com/chef/foodtruck/providers/mock"
 )
 
 type Connector interface {
@@ -34,7 +37,7 @@ type Connector interface {
 }
 
 type Provider interface {
-	Execute(Policy) error
+	Execute(interface{}) error
 }
 
 type Order struct {
@@ -44,8 +47,8 @@ type Order struct {
 }
 
 type Policy struct {
-	Provider   string      `json:"provider"`
-	Definition interface{} `json:"definition"`
+	Provider   string                 `json:"provider"`
+	Definition map[string]interface{} `json:"definition"`
 }
 
 type Change struct {
@@ -84,23 +87,12 @@ func receive(o []byte) {
 	order := Order{}
 	json.Unmarshal(o, &order)
 	fmt.Printf("Order %v Received! ", order.ID)
+	ProcessOrder(order)
 }
 
 func Send() {
-	order := Order{
-		ID:       "1",
-		Policies: []Policy{},
-		Change: Change{
-			Ticket:      "abc123",
-			WindowStart: time.Now(),
-			WindowStop:  time.Date(2020, 12, 31, 0, 0, 0, 0, time.Local),
-		},
-	}
-	jsonOrder, err := json.Marshal(order)
-	if err != nil {
-		panic(err)
-	}
-	err = c.SendOrder(jsonOrder)
+	order := `{"id":"1","policies":[{"provider":"mock","definition":{"attrib1":"abc","attrib2":"123","nested":{"attrib3":"a1"}}}],"change":{"ticket":"abc123","start":"2020-01-01 00:00:00", "end":"2021-01-01 00:00:00"}}`
+	err := c.SendOrder([]byte(order))
 	if err != nil {
 		panic(err)
 	}
@@ -113,6 +105,8 @@ func ProcessOrder(o Order) {
 			chefinfra.Execute(p.Definition)
 		case "chefinspec":
 			chefinspec.Execute(p.Definition)
+		case "mock":
+			mock.Execute(p.Definition)
 		}
 	}
 }

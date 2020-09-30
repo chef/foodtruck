@@ -22,6 +22,6 @@ import "fmt"
 // func passInAttrAsJson() {}
 
 // Execute execs
-func Execute() {
+func Execute(m map[string]interface{}) {
 	fmt.Println("Infra!")
 }

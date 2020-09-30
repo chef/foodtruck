@@ -14,10 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package chefinspec
+package mock
 
 import "fmt"
 
 func Execute(m map[string]interface{}) {
-	fmt.Println("Inspec!")
+	fmt.Printf("-------------------- RAW DATA --------------------\n")
+	fmt.Printf("%v\n", m)
+	fmt.Printf("--------------------------------------------------\n")
+	for index, element := range m {
+		fmt.Printf("Index: %v\n", index)
+		fmt.Printf("Element: %v\n", element)
+	}
+	fmt.Printf("--------------------------------------------------\n")
 }

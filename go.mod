@@ -11,6 +11,7 @@ require (
 	github.com/Azure/go-amqp v0.12.8 // indirect
 	github.com/Azure/go-autorest/autorest v0.11.6
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.2
+	github.com/google/uuid v1.1.2
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/spf13/afero v1.4.0 // indirect
 	github.com/spf13/cobra v1.0.0

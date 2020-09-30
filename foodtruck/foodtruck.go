@@ -18,10 +18,12 @@ package foodtruck
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"time"
 
 	"github.com/chef/foodtruck/connectors/azeventhub"
+	"github.com/google/uuid"
 )
 
 type Connector interface {
@@ -42,12 +44,6 @@ type Order struct {
 	Change   Change `json:"change"`
 }
 
-type ChefPolicy struct {
-	PolicyFileArchive string
-	InspecArchive     string
-	ParameterFile     string
-}
-
 type Change struct {
 	Ticket      string    `json:"ticket"`
 	WindowStart time.Time `json:"start"`
@@ -56,7 +52,10 @@ type Change struct {
 
 var c Connector
 
-func Register() {
+func Init() {
+	ensureDir(".foodtruck")
+	ensureDir(".foodtruck/cache")
+
 	queue, err := os.Hostname()
 	if err != nil {
 		panic(err)
@@ -66,6 +65,20 @@ func Register() {
 	err = c.Register(queue)
 	if err != nil {
 		panic(err)
+	}
+}
+
+func ensureDir(path string) {
+	dir, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		err = os.Mkdir(path, 0700)
+		if err != nil {
+			panic(err)
+		}
+	} else if err != nil {
+		panic(err)
+	} else if !dir.IsDir() {
+		panic("Path " + path + " exists and is not a directory!")
 	}
 }
 
@@ -83,12 +96,16 @@ func Listen() {
 func receive(o []byte) {
 	order := Order{}
 	json.Unmarshal(o, &order)
-	fmt.Printf("Order %v Received! ", order.ID)
+	fmt.Printf("Order %v Received!\n", order.ID)
+	err := ioutil.WriteFile(".foodtruck/cache/"+order.ID+".json", o, 0700)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func Send() {
 	order := Order{
-		ID:       "1",
+		ID:       uuid.New().String(),
 		Provider: "Chef",
 		Policy:   "Policy Archive Location!",
 		Change: Change{

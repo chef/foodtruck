@@ -23,7 +23,11 @@ import (
 	"time"
 
 	"github.com/chef/foodtruck/connectors/azeventhub"
+<<<<<<< HEAD
 	"github.com/google/uuid"
+=======
+	"github.com/chef/foodtruck/providers/chefinfra"
+>>>>>>> master
 )
 
 type Connector interface {
@@ -35,13 +39,13 @@ type Connector interface {
 }
 
 type Provider interface {
+	Execute(Policy) error
 }
 
 type Order struct {
-	ID       string `json:"id"`
-	Provider string `json:"provider"`
-	Policy   string `json:"policy"`
-	Change   Change `json:"change"`
+	ID       string   `json:"id"`
+	Policies []Policy `json:"policies"`
+	Change   Change   `json:"change"`
 }
 
 type Change struct {
@@ -105,9 +109,14 @@ func receive(o []byte) {
 
 func Send() {
 	order := Order{
+<<<<<<< HEAD
 		ID:       uuid.New().String(),
 		Provider: "Chef",
 		Policy:   "Policy Archive Location!",
+=======
+		ID:       "1",
+		Policies: []Policy{},
+>>>>>>> master
 		Change: Change{
 			Ticket:      "abc123",
 			WindowStart: time.Now(),
@@ -121,5 +130,16 @@ func Send() {
 	err = c.SendOrder(jsonOrder)
 	if err != nil {
 		panic(err)
+	}
+}
+
+func ProcessOrder(o Order) {
+	for _, p := range o.Policies {
+		switch p.Provider {
+		case "chefinfra":
+			chefinfra.Execute(p.Definition)
+		case "chefinspec":
+			chefinspec.Execute(p.Definition)
+		}
 	}
 }

@@ -14,4 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package chef
+package chefinfra
+
+import "fmt"
+
+// func executePolicyArchive() {}
+// func passInAttrAsJson() {}
+
+// Execute execs
+func Execute() {
+	fmt.Println("Infra!")
+}

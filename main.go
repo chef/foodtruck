@@ -15,7 +15,9 @@ limitations under the License.
 */
 package main
 
-import "github.com/chef/foodtruck/cmd"
+import (
+	"github.com/chef/foodtruck/cmd"
+)
 
 func main() {
 	cmd.Execute()

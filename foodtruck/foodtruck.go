@@ -38,13 +38,21 @@ type Connector interface {
 }
 
 type Provider interface {
-	Execute(interface{}) error
+	New(map[string]interface{}) (*Provider, error)
+	Prepare() error
+	Execute() error
+	Clean() error
 }
 
 type Order struct {
 	ID       string   `json:"id"`
 	Policies []Policy `json:"policies"`
 	Change   Change   `json:"change"`
+}
+
+type Policy struct {
+	Provider   string                 `json:"provider"`
+	Definition map[string]interface{} `json:"definition"`
 }
 
 type Change struct {
@@ -57,7 +65,7 @@ var c Connector
 
 func Init() {
 	ensureDir(".foodtruck")
-	ensureDir(".foodtruck/cache")
+	ensureDir(".foodtruck/orders")
 
 	queue, err := os.Hostname()
 	if err != nil {
@@ -100,7 +108,7 @@ func receive(o []byte) {
 	order := Order{}
 	json.Unmarshal(o, &order)
 	fmt.Printf("Order %v Received!\n", order.ID)
-	err := ioutil.WriteFile(".foodtruck/cache/"+order.ID+".json", o, 0700)
+	err := ioutil.WriteFile(".foodtruck/orders/"+order.ID+".json", o, 0700)
 	if err != nil {
 		panic(err)
 	}
@@ -116,14 +124,22 @@ func Send() {
 }
 
 func processOrder(o Order) {
-	for _, p := range o.Policies {
-		switch p.Provider {
+	var p Provider
+
+	for _, policy := range o.Policies {
+		switch policy.Provider {
 		case "chefinfra":
-			chefinfra.Execute(p.Definition)
+			ensureDir(".foodtruck/chefinfra")
+			p = chefinfra.New(policy.Definition)
 		case "chefinspec":
-			chefinspec.Execute(p.Definition)
+			ensureDir(".foodtruck/chefinspec")
+			p = chefinspec.New(policy.Definition)
 		case "mock":
-			mock.Execute(p.Definition)
+			p = mock.New()
+		}
+		err := p.Execute()
+		if err != nil {
+			panic(err)
 		}
 	}
 }

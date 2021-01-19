@@ -50,10 +50,13 @@ func (h *NodeRoutesHandler) UpdateNodeTaskStatus(c echo.Context) error {
 		return err
 	}
 
-	if !models.IsValidTaskStatus(string(body.Status)) {
-		return &echo.HTTPError{Code: http.StatusNotFound, Message: fmt.Sprintf("status must be one of (%s)", strings.Join(models.ValidTaskStatuses, ","))}
+	if body.JobID == "" {
+		return &echo.HTTPError{Code: http.StatusBadRequest, Message: fmt.Sprintf("job_id must be provided")}
 	}
-	err = h.db.UpdateNodeTaskStatus(c.Request().Context(), node, body.JobID, body.Status)
+	if !models.IsValidTaskStatus(string(body.Status)) {
+		return &echo.HTTPError{Code: http.StatusBadRequest, Message: fmt.Sprintf("status must be one of (%s)", strings.Join(models.ValidTaskStatuses, ","))}
+	}
+	err = h.db.UpdateNodeTaskStatus(c.Request().Context(), node, body)
 	if err != nil {
 		if errors.Is(err, models.ErrNoTasks) {
 			return &echo.HTTPError{Code: http.StatusNotFound, Message: "no tasks available"}

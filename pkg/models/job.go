@@ -9,17 +9,17 @@ import (
 type TaskStatus string
 
 const (
-	TaskStatusPending  TaskStatus = "pending"
-	TaskStatusExpired  TaskStatus = "expired"
-	TaskStatusRunning  TaskStatus = "running"
-	TaskStatusComplete TaskStatus = "complete"
+	TaskStatusPending TaskStatus = "pending"
+	TaskStatusRunning TaskStatus = "running"
+	TaskStatusFailed  TaskStatus = "failed"
+	TaskStatusSuccess TaskStatus = "success"
 )
 
 var ValidTaskStatuses = []string{
 	string(TaskStatusPending),
-	string(TaskStatusExpired),
 	string(TaskStatusRunning),
-	string(TaskStatusComplete),
+	string(TaskStatusFailed),
+	string(TaskStatusSuccess),
 }
 
 func IsValidTaskStatus(s string) bool {
@@ -54,8 +54,14 @@ type NodeTask struct {
 	Spec        json.RawMessage `json:"spec" bson:"spec"`
 }
 
+type NodeTaskStatusResult struct {
+	ExitCode int    `json:"exit_code" bson:"exit_code"`
+	Reason   string `json:"reason,omitempty" bson:"reason,omitempty"`
+}
+
 type NodeTaskStatus struct {
-	JobID      string     `json:"job_id" bson:"job_id"`
-	Status     TaskStatus `json:"status,omitempty" bson:"status,omitempty"`
-	LastUpdate time.Time  `json:"last_update,omitempty" bson:"last_update,omitempty"`
+	JobID      string                `json:"job_id" bson:"job_id"`
+	Status     TaskStatus            `json:"status,omitempty" bson:"status,omitempty"`
+	LastUpdate time.Time             `json:"last_update,omitempty" bson:"last_update,omitempty"`
+	Result     *NodeTaskStatusResult `json:"result,omitempty" bson:"result,omitempty"`
 }

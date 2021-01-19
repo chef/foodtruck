@@ -140,13 +140,16 @@ func (c *CosmosDB) dequeueTask(ctx context.Context, node models.Node, jobID stri
 	updates[0] = updateNodeTasksModel
 
 	opts := options.BulkWrite().SetOrdered(false)
-	_, err := c.nodeTasksCollection.BulkWrite(context.TODO(), updates, opts)
+	_, err := c.nodeTasksCollection.BulkWrite(ctx, updates, opts)
 
 	if err != nil {
 		return err
 	}
 
-	err = c.UpdateNodeTaskStatus(ctx, node, jobID, status)
+	err = c.UpdateNodeTaskStatus(ctx, node, models.NodeTaskStatus{
+		JobID:  jobID,
+		Status: models.TaskStatusPending,
+	})
 	if err != nil {
 		// TODO: logging
 		fmt.Printf("failed to create task status: %s\n", err)
@@ -155,7 +158,7 @@ func (c *CosmosDB) dequeueTask(ctx context.Context, node models.Node, jobID stri
 	return nil
 }
 
-func (c *CosmosDB) UpdateNodeTaskStatus(ctx context.Context, node models.Node, jobID string, status models.TaskStatus) error {
+func (c *CosmosDB) UpdateNodeTaskStatus(ctx context.Context, node models.Node, nodeTaskStatus models.NodeTaskStatus) error {
 	nodeName := node.String()
 
 	opts := options.Update().SetUpsert(true)
@@ -163,14 +166,16 @@ func (c *CosmosDB) UpdateNodeTaskStatus(ctx context.Context, node models.Node, j
 		ctx,
 		bson.D{
 			{"node_name", nodeName},
-			{"job_id", jobID},
+			{"job_id", nodeTaskStatus.JobID},
 		},
 		bson.D{
 			{"$set", bson.D{
-				{"status", status},
+				{"status", nodeTaskStatus.Status},
 				{"last_updated", time.Now()},
 				{"node_name", nodeName},
-				{"job_id", jobID}}},
+				{"job_id", nodeTaskStatus.JobID},
+				{"result", nodeTaskStatus.Result},
+			}},
 		},
 		opts,
 	)

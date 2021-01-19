@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
+	"syscall"
 	"time"
 
 	"github.com/chef/foodtruck/pkg/foodtruckhttp"
@@ -51,16 +54,31 @@ func main() {
 				fmt.Printf("[Error] %s\n", err)
 			}
 
+			taskStatus := models.NodeTaskStatus{
+				JobID:  task.JobID,
+				Result: &models.NodeTaskStatusResult{},
+			}
 			if err := runner.Run(ctx, task.Provider, task.Spec); err != nil {
 				fmt.Printf("[Error] %s\n", err)
+				taskStatus.Status = models.TaskStatusFailed
+				exitErr := &exec.ExitError{}
+				if errors.As(err, &exitErr) {
+					taskStatus.Result.Reason = "exit error"
+					taskStatus.Result.ExitCode = -1
+					if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
+						taskStatus.Result.ExitCode = status.ExitStatus()
+					}
+				} else {
+					taskStatus.Result.Reason = err.Error()
+					taskStatus.Result.ExitCode = -1
+				}
 			} else {
 				fmt.Println("Task complete")
+				taskStatus.Status = models.TaskStatusSuccess
+				taskStatus.Result.ExitCode = 0
 			}
 
-			err = client.UpdateNodeTaskStatus(ctx, models.NodeTaskStatus{
-				JobID:  task.JobID,
-				Status: models.TaskStatusComplete,
-			})
+			err = client.UpdateNodeTaskStatus(ctx, taskStatus)
 			if err != nil {
 				fmt.Printf("[Error] %s\n", err)
 			}

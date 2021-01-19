@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/chef/foodtruck/pkg/models"
-	"github.com/davecgh/go-spew/spew"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -159,7 +158,6 @@ func (c *CosmosDB) dequeueTask(ctx context.Context, node models.Node, jobID stri
 func (c *CosmosDB) UpdateNodeTaskStatus(ctx context.Context, node models.Node, jobID string, status models.TaskStatus) error {
 	nodeName := node.String()
 
-	spew.Dump(status)
 	opts := options.Update().SetUpsert(true)
 	_, err := c.nodeTaskStatusCollection.UpdateOne(
 		ctx,

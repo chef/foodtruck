@@ -19,9 +19,10 @@ type Client struct {
 	BaseURL    string
 	Node       models.Node
 	httpClient *http.Client
+	apiKey     string
 }
 
-func NewClient(baseURL string, node models.Node) *Client {
+func NewClient(baseURL string, node models.Node, apiKey string) *Client {
 	tr := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		Dial: (&net.Dialer{
@@ -32,6 +33,7 @@ func NewClient(baseURL string, node models.Node) *Client {
 	return &Client{
 		BaseURL: fmt.Sprintf("%s/organizations/%s/foodtruck/nodes/%s", baseURL, node.Organization, node.Name),
 		Node:    node,
+		apiKey:  apiKey,
 		httpClient: &http.Client{
 			Transport: tr,
 			Timeout:   time.Duration(5*time.Second) * time.Second,
@@ -83,6 +85,7 @@ func (c *Client) put(ctx context.Context, requestURL string, body io.Reader) (*h
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

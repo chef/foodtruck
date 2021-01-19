@@ -9,13 +9,18 @@ import (
 	"github.com/chef/foodtruck/pkg/models"
 	"github.com/chef/foodtruck/pkg/storage"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 )
 
-func initNodesRouter(e *echo.Echo, db storage.Driver) {
+func initNodesRouter(e *echo.Echo, db storage.Driver, config Config) {
 	handler := &NodeRoutesHandler{
 		db: db,
 	}
 	nodesRoutes := e.Group("/organizations/:org/foodtruck/nodes/:name")
+	nodesRoutes.Use(middleware.KeyAuth(func(key string, c echo.Context) (bool, error) {
+		// Probably not ok: this isn't a constant time compare
+		return key == config.Auth.Nodes.ApiKey, nil
+	}))
 	nodesRoutes.PUT("/tasks/next", handler.GetNextTask)
 	nodesRoutes.PUT("/tasks/status", handler.UpdateNodeTaskStatus)
 }

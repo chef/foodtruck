@@ -9,6 +9,7 @@ import (
 	"github.com/chef/foodtruck/pkg/models"
 	"github.com/chef/foodtruck/pkg/storage"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -37,6 +38,8 @@ func main() {
 
 	e := echo.New()
 	e.Use(middleware.Logger())
+	p := prometheus.NewPrometheus("foodtruck", nil)
+	p.Use(e)
 	initAdminRouter(e, db)
 	initNodesRouter(e, db)
 

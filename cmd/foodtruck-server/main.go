@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -16,12 +17,17 @@ import (
 
 const (
 	mongoDBConnectionStringEnvVarName = "MONGODB_CONNECTION_STRING"
-	mongoDBDatabaseEnvVarName         = "MONGODB_DATABASE"
+	mongoDBDatabaseNameEnvVarName     = "MONGODB_DATABASE_NAME"
+	nodesAPIKeyEnvVarName             = "NODES_API_KEY"
+	adminAPIKeyEnvVarName             = "ADMIN_API_KEY"
+	foodtruckPortEnvVarName           = "FOODTRUCK_LISTEN_ADDR"
 )
 
 type Config struct {
-	Database string
-	Auth     struct {
+	ListenAddr         string
+	DatabaseConnection string
+	Database           string
+	Auth               struct {
 		// Auth for the nodes endpoints
 		Nodes struct {
 			ApiKey string
@@ -34,11 +40,57 @@ type Config struct {
 	}
 }
 
+func loadConfig() Config {
+	c := Config{}
+	{
+		v, ok := os.LookupEnv(foodtruckPortEnvVarName)
+		if !ok {
+			v = ":1323"
+		}
+		c.ListenAddr = v
+	}
+
+	{
+		v, ok := os.LookupEnv(mongoDBConnectionStringEnvVarName)
+		if !ok {
+			fmt.Fprintf(os.Stderr, "You must provide %s in the environment\n", mongoDBConnectionStringEnvVarName)
+			os.Exit(1)
+		}
+		c.DatabaseConnection = v
+	}
+
+	{
+		v, ok := os.LookupEnv(mongoDBDatabaseNameEnvVarName)
+		if !ok {
+			fmt.Fprintf(os.Stderr, "You must provide %s in the environment\n", mongoDBDatabaseNameEnvVarName)
+			os.Exit(1)
+		}
+		c.Database = v
+	}
+
+	{
+		v, ok := os.LookupEnv(nodesAPIKeyEnvVarName)
+		if !ok {
+			fmt.Fprintf(os.Stderr, "You must provide %s in the environment\n", nodesAPIKeyEnvVarName)
+			os.Exit(1)
+		}
+		c.Auth.Nodes.ApiKey = v
+	}
+
+	{
+		v, ok := os.LookupEnv(adminAPIKeyEnvVarName)
+		if !ok {
+			fmt.Fprintf(os.Stderr, "You must provide %s in the environment\n", adminAPIKeyEnvVarName)
+			os.Exit(1)
+		}
+		c.Auth.Admin.ApiKey = v
+	}
+	return c
+}
+
 func main() {
 
-	config := Config{
-		Database: "testdb1",
-	}
+	config := loadConfig()
 
 	ctx := context.Background()
 	c := connect()
@@ -58,7 +110,7 @@ func main() {
 	initAdminRouter(e, db)
 	initNodesRouter(e, db)
 
-	e.Logger.Fatal(e.Start(":1323"))
+	e.Logger.Fatal(e.Start(config.ListenAddr))
 
 }
 

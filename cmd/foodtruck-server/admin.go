@@ -35,8 +35,8 @@ func (h *AdminRoutesHandler) AddJob(c echo.Context) error {
 		return &echo.HTTPError{Code: http.StatusBadRequest, Message: "window_start and window_end must be provided"}
 	}
 
-	if job.Task.Type == "" {
-		return &echo.HTTPError{Code: http.StatusBadRequest, Message: "task type must be provided"}
+	if job.Task.Provider == "" {
+		return &echo.HTTPError{Code: http.StatusBadRequest, Message: "task provider must be provided"}
 	}
 
 	for i, n := range job.Nodes {

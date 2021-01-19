@@ -50,7 +50,7 @@ type NodeTask struct {
 	JobID       string          `json:"job_id,omitempty" bson:"job_id,omitempty"`
 	WindowStart time.Time       `json:"window_start" bson:"window_start"`
 	WindowEnd   time.Time       `json:"window_end" bson:"window_end"`
-	Type        string          `json:"type" bson:"type"`
+	Provider    string          `json:"provider" bson:"provider"`
 	Spec        json.RawMessage `json:"spec" bson:"spec"`
 }
 

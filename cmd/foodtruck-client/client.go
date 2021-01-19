@@ -51,7 +51,7 @@ func main() {
 				fmt.Printf("[Error] %s\n", err)
 			}
 
-			if err := runner.Run(ctx, task.Type, task.Spec); err != nil {
+			if err := runner.Run(ctx, task.Provider, task.Spec); err != nil {
 				fmt.Printf("[Error] %s\n", err)
 			} else {
 				fmt.Println("Task complete")

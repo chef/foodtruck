@@ -6,9 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/chef/foodtruck/pkg/models"
 	"github.com/chef/foodtruck/pkg/storage"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -61,70 +59,6 @@ func main() {
 	initNodesRouter(e, db)
 
 	e.Logger.Fatal(e.Start(":1323"))
-
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	err := db.AddJob(ctx, models.Job{
-		Task: models.NodeTask{
-			Type:        "infra",
-			WindowStart: time.Now().AddDate(0, 1, 0),
-			WindowEnd:   time.Now().AddDate(0, 1, 2),
-		},
-		Nodes: []models.Node{
-			{
-				Organization: "myorg",
-				Name:         "testnode1",
-			},
-			{
-				Organization: "myorg",
-				Name:         "testnode2",
-			},
-			{
-				Organization: "myorg",
-				Name:         "testnode3",
-			},
-			{
-				Organization: "myorg",
-				Name:         "testnode4",
-			},
-		},
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	err = db.AddJob(ctx, models.Job{
-		Task: models.NodeTask{
-			Type:        "inspec",
-			WindowStart: time.Now(),
-			WindowEnd:   time.Now().AddDate(0, 0, 2),
-		},
-		Nodes: []models.Node{
-			{
-				Organization: "myorg",
-				Name:         "testnode2",
-			},
-			{
-				Organization: "myorg",
-				Name:         "testnode3",
-			},
-		},
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	tasks, err := db.GetNodeTasks(ctx, models.Node{"myorg", "testnode2"})
-	if err != nil {
-		panic(err)
-	}
-	spew.Dump(tasks)
-
-	task, err := db.NextNodeTask(ctx, models.Node{"myorg", "testnode2"})
-	if err != nil {
-		panic(err)
-	}
-	spew.Dump(task)
 
 }
 

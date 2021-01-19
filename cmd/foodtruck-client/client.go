@@ -8,6 +8,7 @@ import (
 
 	"github.com/chef/foodtruck/pkg/foodtruckhttp"
 	"github.com/chef/foodtruck/pkg/models"
+	"github.com/chef/foodtruck/pkg/provider"
 	"github.com/davecgh/go-spew/spew"
 )
 
@@ -31,6 +32,7 @@ func main() {
 	defer cancel()
 
 	client := foodtruckhttp.NewClient(config.BaseURL, config.Node)
+	runner := provider.NewExecRunner()
 	for {
 		select {
 		case <-ctx.Done():
@@ -42,6 +44,12 @@ func main() {
 				continue
 			}
 			spew.Dump(task)
+			fmt.Println("Running task")
+			if err := runner.Run(ctx, task.Type, task.Spec); err != nil {
+				fmt.Printf("[Error] %s\n", err)
+			} else {
+				fmt.Println("Task complete")
+			}
 		}
 	}
 }

@@ -1,0 +1,6 @@
+#!/bin/env bash
+
+echo "Running a provider"
+echo "Reading json value: $(jq -r .run)"
+
+exit 1

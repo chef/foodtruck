@@ -1,6 +1,20 @@
 #!/bin/env bash
 
+set -xe
+
 echo "Running a provider"
-echo "Reading json value: $(jq -r .run)"
+tmpdir="$(mktemp -d)"
+
+cd "$tmpdir"
+echo "cd $tmpdir"
+url="$(jq -r .url)"
+echo "Downloading: $url"
+curl -o policy.tar.gz "$url"
+echo "Unpacking policy"
+tar -xvzf policy.tar.gz
+cd out
+
+echo "Running chef-client -z"
+chef-client -z --chef-license accept
 
 exit 0

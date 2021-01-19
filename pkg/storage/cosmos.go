@@ -32,10 +32,10 @@ func CosmosDBImpl(jobsCollection *mongo.Collection, nodeTasksCollection *mongo.C
 	}
 }
 
-func (c *CosmosDB) AddJob(ctx context.Context, job models.Job) error {
+func (c *CosmosDB) AddJob(ctx context.Context, job models.Job) (models.JobID, error) {
 	res, err := c.jobsCollection.InsertOne(ctx, job)
 	if err != nil {
-		return fmt.Errorf("failed to insert job: %w", err)
+		return "", fmt.Errorf("failed to insert job: %w", err)
 	}
 
 	job.Task.JobID = res.InsertedID.(primitive.ObjectID).Hex()
@@ -61,9 +61,9 @@ func (c *CosmosDB) AddJob(ctx context.Context, job models.Job) error {
 	_, err = c.nodeTasksCollection.BulkWrite(ctx, updates, opts)
 
 	if err != nil {
-		return fmt.Errorf("failed to insert node_tasks: %w", err)
+		return "", fmt.Errorf("failed to insert node_tasks: %w", err)
 	}
-	return nil
+	return job.Task.JobID, nil
 }
 
 func (c *CosmosDB) ListJobs(ctx context.Context) error {

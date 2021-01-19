@@ -7,7 +7,7 @@ import (
 )
 
 type Driver interface {
-	AddJob(ctx context.Context, job models.Job) error
+	AddJob(ctx context.Context, job models.Job) (models.JobID, error)
 	ListJobs(ctx context.Context) error
 	GetNodeTasks(ctx context.Context, node models.Node) ([]models.NodeTask, error)
 	NextNodeTask(ctx context.Context, node models.Node) (models.NodeTask, error)

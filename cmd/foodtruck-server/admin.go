@@ -21,6 +21,10 @@ type AdminRoutesHandler struct {
 	db storage.Driver
 }
 
+type AddJobResult struct {
+	JobID string `json:"id"`
+}
+
 func (h *AdminRoutesHandler) AddJob(c echo.Context) error {
 	job := models.Job{}
 	if err := c.Bind(&job); err != nil {
@@ -45,8 +49,10 @@ func (h *AdminRoutesHandler) AddJob(c echo.Context) error {
 		}
 	}
 
-	if err := h.db.AddJob(c.Request().Context(), job); err != nil {
+	jobID, err := h.db.AddJob(c.Request().Context(), job)
+	if err != nil {
 		return &echo.HTTPError{Code: http.StatusInternalServerError, Internal: err}
 	}
-	return nil
+
+	return c.JSON(200, AddJobResult{JobID: jobID})
 }

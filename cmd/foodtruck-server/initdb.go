@@ -53,19 +53,20 @@ func createCollection(ctx context.Context, db *mongo.Database, collectionName st
 
 	indexView := db.Collection(collectionName).Indexes()
 
+	indexOpts := &options.IndexOptions{}
 	if shardKeyUnique {
-		indexOpts := &options.IndexOptions{}
 		indexOpts.SetUnique(true)
-		_, err := indexView.CreateOne(ctx, mongo.IndexModel{
-			Keys:    bson.D{{shardKey, 1}},
-			Options: indexOpts,
-		})
+	}
 
-		if err != nil {
-			cmdErr, ok := err.(mongo.CommandError)
-			if !ok || cmdErr.Code != namespaceExistsErrCode {
-				return err
-			}
+	_, err := indexView.CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{shardKey, 1}},
+		Options: indexOpts,
+	})
+
+	if err != nil {
+		cmdErr, ok := err.(mongo.CommandError)
+		if !ok || cmdErr.Code != namespaceExistsErrCode {
+			return err
 		}
 	}
 

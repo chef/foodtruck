@@ -9,6 +9,8 @@ import (
 	"github.com/chef/foodtruck/pkg/models"
 	"github.com/chef/foodtruck/pkg/storage"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -19,14 +21,7 @@ const (
 )
 
 func main() {
-	/*
-		e := echo.New()
-		e.GET("/", func(c echo.Context) error {
-			return c.String(http.StatusOK, "Hello, World!")
-		})
 
-		e.Logger.Fatal(e.Start(":1323"))
-	*/
 	config := Config{
 		Database:            "testdb1",
 		JobsCollection:      "jobs",
@@ -39,6 +34,13 @@ func main() {
 	jobsCollection := c.Database(config.Database).Collection(config.JobsCollection)
 	nodeTasksCollection := c.Database(config.Database).Collection(config.NodeTasksCollection)
 	db := storage.CosmosDBImpl(jobsCollection, nodeTasksCollection)
+
+	e := echo.New()
+	e.Use(middleware.Logger())
+	initAdminRouter(e, db)
+	initNodesRouter(e, db)
+
+	e.Logger.Fatal(e.Start(":1323"))
 
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -103,6 +105,7 @@ func main() {
 		panic(err)
 	}
 	spew.Dump(task)
+
 }
 
 func connect() *mongo.Client {

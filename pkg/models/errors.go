@@ -1,5 +1,9 @@
 package models
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
-var ErrNoTasks = errors.New("No tasks available")
+var ErrNotFound = errors.New("Not Found")
+var ErrNoTasks = fmt.Errorf("No tasks available: %w", ErrNotFound)

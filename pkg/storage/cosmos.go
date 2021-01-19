@@ -70,6 +70,50 @@ func (c *CosmosDB) ListJobs(ctx context.Context) error {
 	return nil
 }
 
+func (c *CosmosDB) GetJob(ctx context.Context, jobID models.JobID, opts ...GetJobOpt) (JobWithStatus, error) {
+	gopts := GetJobOpts{}
+	for _, o := range opts {
+		o(&gopts)
+	}
+
+	objID, err := primitive.ObjectIDFromHex(jobID)
+	if err != nil {
+		return JobWithStatus{}, models.ErrNotFound
+	}
+
+	cursor := c.jobsCollection.FindOne(ctx, bson.D{{"_id", objID}})
+	if err := cursor.Err(); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return JobWithStatus{}, models.ErrNotFound
+		}
+		return JobWithStatus{}, fmt.Errorf("failed to query for jobs: %w", err)
+	}
+
+	job := models.Job{}
+	if err := cursor.Decode(&job); err != nil {
+		return JobWithStatus{}, err
+	}
+
+	var nodeStatuses []models.NodeTaskStatus
+	if gopts.FetchStatuses {
+		cursor, err := c.nodeTaskStatusCollection.Find(ctx, bson.D{{"job_id", jobID}})
+		if err != nil {
+			if errors.Is(err, mongo.ErrNoDocuments) {
+				return JobWithStatus{}, models.ErrNotFound
+			}
+			return JobWithStatus{}, fmt.Errorf("failed to query for jobs: %w", err)
+		}
+		if err := cursor.All(ctx, &nodeStatuses); err != nil {
+			return JobWithStatus{}, err
+		}
+	}
+
+	return JobWithStatus{
+		Job:      job,
+		Statuses: nodeStatuses,
+	}, nil
+}
+
 func (c *CosmosDB) GetNodeTasks(ctx context.Context, node models.Node) ([]models.NodeTask, error) {
 	cursor := c.nodeTasksCollection.FindOne(ctx, bson.D{{"node_name", node.String()}})
 	if err := cursor.Err(); err != nil {

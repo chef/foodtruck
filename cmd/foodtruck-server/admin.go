@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -15,6 +16,7 @@ func initAdminRouter(e *echo.Echo, db storage.Driver) {
 	}
 	adminRoutes := e.Group("/admin")
 	adminRoutes.POST("/jobs", handler.AddJob)
+	adminRoutes.GET("/jobs/:job_id", handler.GetJob)
 }
 
 type AdminRoutesHandler struct {
@@ -55,4 +57,24 @@ func (h *AdminRoutesHandler) AddJob(c echo.Context) error {
 	}
 
 	return c.JSON(200, AddJobResult{JobID: jobID})
+}
+
+func (h *AdminRoutesHandler) GetJob(c echo.Context) error {
+	jobID := c.Param("job_id")
+
+	if jobID == "" {
+		return &echo.HTTPError{Code: http.StatusBadRequest, Message: "must provide a job id"}
+	}
+
+	fetchStatuses := c.QueryParam("fetchStatuses") == "true"
+
+	job, err := h.db.GetJob(c.Request().Context(), jobID, storage.WithJobStatuses(fetchStatuses))
+	if err != nil {
+		if errors.Is(err, models.ErrNotFound) {
+			return &echo.HTTPError{Code: http.StatusNotFound, Message: "job not found"}
+		}
+		return &echo.HTTPError{Code: http.StatusInternalServerError, Internal: err}
+	}
+
+	return c.JSON(200, job)
 }

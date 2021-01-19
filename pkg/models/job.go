@@ -30,15 +30,10 @@ type Job struct {
 }
 
 type NodeTask struct {
-	ID          string          `json:"id,omitempty" bson:"_id,omitempty"`
 	JobID       string          `json:"job_id,omitempty" bson:"job_id,omitempty"`
 	Status      TaskStatus      `json:"status,omitempty" bson:"status,omitempty"`
 	WindowStart time.Time       `json:"window_start" bson:"window_start"`
 	WindowEnd   time.Time       `json:"window_end" bson:"window_end"`
 	Type        string          `json:"type" bson:"type"`
 	Spec        json.RawMessage `json:"spec" bson:"spec"`
-}
-
-type ChefClientRunJob struct {
-	AdditionalClientParams json.RawMessage
 }

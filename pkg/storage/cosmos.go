@@ -21,7 +21,7 @@ type CosmosDB struct {
 }
 
 type CosmosNodeTask struct {
-	NodeName string            `bson:"node"`
+	NodeName string            `bson:"node_name"`
 	Tasks    []models.NodeTask `bson:"tasks"`
 }
 
@@ -59,7 +59,7 @@ func (c *CosmosDB) AddJob(ctx context.Context, job models.Job) error {
 	}
 
 	opts := options.BulkWrite().SetOrdered(false)
-	_, err = c.nodeTasksCollection.BulkWrite(context.TODO(), updates, opts)
+	_, err = c.nodeTasksCollection.BulkWrite(ctx, updates, opts)
 
 	if err != nil {
 		return fmt.Errorf("failed to insert node_tasks: %w", err)

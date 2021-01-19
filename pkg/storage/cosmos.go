@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/chef/foodtruck/pkg/models"
 	"go.mongodb.org/mongo-driver/bson"
@@ -12,8 +13,9 @@ import (
 )
 
 type CosmosDB struct {
-	jobsCollection      *mongo.Collection
-	nodeTasksCollection *mongo.Collection
+	jobsCollection           *mongo.Collection
+	nodeTasksCollection      *mongo.Collection
+	nodeTaskStatusCollection *mongo.Collection
 }
 
 type CosmosNodeTask struct {
@@ -35,7 +37,6 @@ func (c *CosmosDB) AddJob(ctx context.Context, job models.Job) error {
 	}
 
 	job.Task.JobID = res.InsertedID.(primitive.ObjectID).Hex()
-	job.Task.Status = models.TaskStatusPending
 
 	updates := make([]mongo.WriteModel, len(job.Nodes))
 	for i := range updates {
@@ -77,4 +78,68 @@ func (c *CosmosDB) GetNodeTasks(ctx context.Context, node models.Node) ([]models
 		return nil, fmt.Errorf("failed to decode node tasks result: %w", err)
 	}
 	return result.Tasks, nil
+}
+
+func (c *CosmosDB) NextNodeTask(ctx context.Context, node models.Node) (models.NodeTask, error) {
+	cursor := c.nodeTasksCollection.FindOne(ctx, bson.D{{"node_name", node.String()}})
+	if err := cursor.Err(); err != nil {
+		return models.NodeTask{}, fmt.Errorf("failed to query for node tasks: %w", err)
+	}
+	var result CosmosNodeTask
+	if err := cursor.Decode(&result); err != nil {
+		return models.NodeTask{}, fmt.Errorf("failed to decode node tasks result: %w", err)
+	}
+
+	tasks := result.Tasks
+
+	for {
+		if len(tasks) == 0 {
+			return models.NodeTask{}, models.ErrNoTasks
+		}
+
+		nextTask := tasks[0]
+		for i := 1; i < len(tasks); i++ {
+			if tasks[i].WindowStart.Before(nextTask.WindowStart) {
+				nextTask = tasks[i]
+			}
+		}
+
+		if time.Now().After(nextTask.WindowStart) && time.Now().Before(nextTask.WindowEnd) {
+			if err := c.dequeueTask(ctx, node, nextTask.JobID, "running"); err != nil {
+				return models.NodeTask{}, fmt.Errorf("failed to remove task: %w", err)
+			}
+			return nextTask, nil
+		} else if time.Now().After(nextTask.WindowEnd) {
+			if err := c.dequeueTask(ctx, node, nextTask.JobID, "expired"); err != nil {
+				return models.NodeTask{}, fmt.Errorf("failed to remove task: %w", err)
+			}
+		}
+		tasks = tasks[1:]
+	}
+}
+
+func (c *CosmosDB) dequeueTask(ctx context.Context, node models.Node, jobID string, status string) error {
+	updates := make([]mongo.WriteModel, 1)
+	nodeName := fmt.Sprintf("%s/%s", node.Organization, node.Name)
+	updateNodeTasksModel := mongo.NewUpdateOneModel().SetFilter(
+		bson.D{
+			{"node_name", nodeName},
+		},
+	).SetUpdate(
+		bson.D{
+			{"$set", bson.D{{"node_name", nodeName}}},
+			{"$pull", bson.D{{"tasks", bson.D{{"job_id", jobID}}}}},
+		},
+	).SetUpsert(true)
+
+	updates[0] = updateNodeTasksModel
+
+	opts := options.BulkWrite().SetOrdered(false)
+	_, err := c.nodeTasksCollection.BulkWrite(context.TODO(), updates, opts)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

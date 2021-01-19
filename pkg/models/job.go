@@ -31,9 +31,15 @@ type Job struct {
 
 type NodeTask struct {
 	JobID       string          `json:"job_id,omitempty" bson:"job_id,omitempty"`
-	Status      TaskStatus      `json:"status,omitempty" bson:"status,omitempty"`
 	WindowStart time.Time       `json:"window_start" bson:"window_start"`
 	WindowEnd   time.Time       `json:"window_end" bson:"window_end"`
 	Type        string          `json:"type" bson:"type"`
 	Spec        json.RawMessage `json:"spec" bson:"spec"`
+}
+
+type NodeTaskStatus struct {
+	Node       Node       `json:"node" bson:"node"`
+	JobID      string     `json:"job_id" bson:"job_id"`
+	Status     TaskStatus `json:"status,omitempty" bson:"status,omitempty"`
+	LastUpdate time.Time  `json:"last_update,omitempty" bson:"last_update,omitempty"`
 }

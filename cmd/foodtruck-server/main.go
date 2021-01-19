@@ -86,22 +86,23 @@ func main() {
 				Organization: "myorg",
 				Name:         "testnode3",
 			},
-			{
-				Organization: "myorg",
-				Name:         "testnode4",
-			},
 		},
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	tasks, err := db.GetNodeTasks(ctx, models.Node{"myorg", "testnode4"})
+	tasks, err := db.GetNodeTasks(ctx, models.Node{"myorg", "testnode2"})
 	if err != nil {
 		panic(err)
 	}
 	spew.Dump(tasks)
 
+	task, err := db.NextNodeTask(ctx, models.Node{"myorg", "testnode2"})
+	if err != nil {
+		panic(err)
+	}
+	spew.Dump(task)
 }
 
 func connect() *mongo.Client {

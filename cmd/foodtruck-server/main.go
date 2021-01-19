@@ -107,7 +107,7 @@ func main() {
 	e.Use(middleware.Logger())
 	p := prometheus.NewPrometheus("foodtruck", nil)
 	p.Use(e)
-	initAdminRouter(e, db)
+	initAdminRouter(e, db, config)
 	initNodesRouter(e, db)
 
 	e.Logger.Fatal(e.Start(config.ListenAddr))

@@ -8,13 +8,18 @@ import (
 	"github.com/chef/foodtruck/pkg/models"
 	"github.com/chef/foodtruck/pkg/storage"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 )
 
-func initAdminRouter(e *echo.Echo, db storage.Driver) {
+func initAdminRouter(e *echo.Echo, db storage.Driver, config Config) {
 	handler := &AdminRoutesHandler{
 		db: db,
 	}
 	adminRoutes := e.Group("/admin")
+	adminRoutes.Use(middleware.KeyAuth(func(key string, c echo.Context) (bool, error) {
+		// Probably not ok: this isn't a constant time compare
+		return key == config.Auth.Admin.ApiKey, nil
+	}))
 	adminRoutes.POST("/jobs", handler.AddJob)
 	adminRoutes.GET("/jobs/:job_id", handler.GetJob)
 }

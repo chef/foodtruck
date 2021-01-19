@@ -11,4 +11,5 @@ type Driver interface {
 	ListJobs(ctx context.Context) error
 	GetNodeTasks(ctx context.Context, node models.Node) ([]models.NodeTask, error)
 	NextNodeTask(ctx context.Context, node models.Node) (models.NodeTask, error)
+	UpdateNodeTaskStatus(ctx context.Context, node models.Node, jobID string, status models.TaskStatus) error
 }

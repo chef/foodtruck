@@ -45,11 +45,28 @@ func main() {
 			}
 			spew.Dump(task)
 			fmt.Println("Running task")
+			err = client.UpdateNodeTaskStatus(ctx, models.NodeTaskStatus{
+				JobID:  task.JobID,
+				Status: models.TaskStatusRunning,
+			})
+			if err != nil {
+				fmt.Printf("[Error] %s\n", err)
+			}
+
 			if err := runner.Run(ctx, task.Type, task.Spec); err != nil {
 				fmt.Printf("[Error] %s\n", err)
 			} else {
 				fmt.Println("Task complete")
 			}
+
+			err = client.UpdateNodeTaskStatus(ctx, models.NodeTaskStatus{
+				JobID:  task.JobID,
+				Status: models.TaskStatusComplete,
+			})
+			if err != nil {
+				fmt.Printf("[Error] %s\n", err)
+			}
+
 		}
 	}
 }

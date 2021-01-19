@@ -1,6 +1,7 @@
 package foodtruckhttp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -59,12 +60,30 @@ func (c *Client) GetNextTask(ctx context.Context) (models.NodeTask, error) {
 	return models.NodeTask{}, fmt.Errorf("Request failed")
 }
 
-func (c *Client) put(ctx context.Context, requestURL string, body io.ReadCloser) (*http.Response, error) {
+func (c *Client) UpdateNodeTaskStatus(ctx context.Context, nodeTaskStatus models.NodeTaskStatus) error {
+	reqBody, err := json.Marshal(nodeTaskStatus)
+	resp, err := c.put(ctx, "/tasks/status", bytes.NewReader(reqBody))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == 200 {
+		return nil
+	}
+	respBody, _ := ioutil.ReadAll(resp.Body)
+	fmt.Fprintf(os.Stderr, "Unknown response:\n%s\n\n", respBody)
+	return fmt.Errorf("Request failed")
+}
+
+func (c *Client) put(ctx context.Context, requestURL string, body io.Reader) (*http.Response, error) {
 	u := c.BaseURL + requestURL
 	req, err := http.NewRequest("PUT", u, body)
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err

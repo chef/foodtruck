@@ -10,9 +10,26 @@ type TaskStatus string
 
 const (
 	TaskStatusPending  TaskStatus = "pending"
+	TaskStatusExpired  TaskStatus = "expired"
 	TaskStatusRunning  TaskStatus = "running"
 	TaskStatusComplete TaskStatus = "complete"
 )
+
+var ValidTaskStatuses = []string{
+	string(TaskStatusPending),
+	string(TaskStatusExpired),
+	string(TaskStatusRunning),
+	string(TaskStatusComplete),
+}
+
+func IsValidTaskStatus(s string) bool {
+	for i := range ValidTaskStatuses {
+		if s == ValidTaskStatuses[i] {
+			return true
+		}
+	}
+	return false
+}
 
 type Node struct {
 	Organization string `json:"org" bson:"org"`
@@ -38,7 +55,6 @@ type NodeTask struct {
 }
 
 type NodeTaskStatus struct {
-	Node       Node       `json:"node" bson:"node"`
 	JobID      string     `json:"job_id" bson:"job_id"`
 	Status     TaskStatus `json:"status,omitempty" bson:"status,omitempty"`
 	LastUpdate time.Time  `json:"last_update,omitempty" bson:"last_update,omitempty"`

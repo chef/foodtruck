@@ -2,7 +2,9 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/chef/foodtruck/pkg/models"
 	"github.com/chef/foodtruck/pkg/storage"
@@ -15,6 +17,7 @@ func initNodesRouter(e *echo.Echo, db storage.Driver) {
 	}
 	nodesRoutes := e.Group("/organizations/:org/foodtruck/nodes/:name")
 	nodesRoutes.PUT("/tasks/next", handler.GetNextTask)
+	nodesRoutes.PUT("/tasks/status", handler.UpdateNodeTaskStatus)
 }
 
 type NodeRoutesHandler struct {
@@ -35,6 +38,30 @@ func (h *NodeRoutesHandler) GetNextTask(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, task)
+}
+
+func (h *NodeRoutesHandler) UpdateNodeTaskStatus(c echo.Context) error {
+	node, err := nodeFromContext(c)
+	if err != nil {
+		return err
+	}
+	body := models.NodeTaskStatus{}
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+
+	if !models.IsValidTaskStatus(string(body.Status)) {
+		return &echo.HTTPError{Code: http.StatusNotFound, Message: fmt.Sprintf("status must be one of (%s)", strings.Join(models.ValidTaskStatuses, ","))}
+	}
+	err = h.db.UpdateNodeTaskStatus(c.Request().Context(), node, body.JobID, body.Status)
+	if err != nil {
+		if errors.Is(err, models.ErrNoTasks) {
+			return &echo.HTTPError{Code: http.StatusNotFound, Message: "no tasks available"}
+		}
+		return &echo.HTTPError{Code: http.StatusInternalServerError, Internal: err}
+	}
+
+	return nil
 }
 
 func nodeFromContext(c echo.Context) (models.Node, error) {

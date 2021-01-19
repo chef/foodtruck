@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/chef/foodtruck/pkg/models"
+	"github.com/davecgh/go-spew/spew"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -24,10 +25,11 @@ type CosmosNodeTask struct {
 	Tasks    []models.NodeTask `bson:"tasks"`
 }
 
-func CosmosDBImpl(jobsCollection *mongo.Collection, nodeTasksCollection *mongo.Collection) Driver {
+func CosmosDBImpl(jobsCollection *mongo.Collection, nodeTasksCollection *mongo.Collection, nodeTaskStatusCollection *mongo.Collection) Driver {
 	return &CosmosDB{
-		jobsCollection:      jobsCollection,
-		nodeTasksCollection: nodeTasksCollection,
+		jobsCollection:           jobsCollection,
+		nodeTasksCollection:      nodeTasksCollection,
+		nodeTaskStatusCollection: nodeTaskStatusCollection,
 	}
 }
 
@@ -109,7 +111,7 @@ func (c *CosmosDB) NextNodeTask(ctx context.Context, node models.Node) (models.N
 		}
 
 		if time.Now().After(nextTask.WindowStart) && time.Now().Before(nextTask.WindowEnd) {
-			if err := c.dequeueTask(ctx, node, nextTask.JobID, "running"); err != nil {
+			if err := c.dequeueTask(ctx, node, nextTask.JobID, models.TaskStatusPending); err != nil {
 				return models.NodeTask{}, fmt.Errorf("failed to remove task: %w", err)
 			}
 			return nextTask, nil
@@ -122,7 +124,7 @@ func (c *CosmosDB) NextNodeTask(ctx context.Context, node models.Node) (models.N
 	}
 }
 
-func (c *CosmosDB) dequeueTask(ctx context.Context, node models.Node, jobID string, status string) error {
+func (c *CosmosDB) dequeueTask(ctx context.Context, node models.Node, jobID string, status models.TaskStatus) error {
 	updates := make([]mongo.WriteModel, 1)
 	nodeName := fmt.Sprintf("%s/%s", node.Organization, node.Name)
 	updateNodeTasksModel := mongo.NewUpdateOneModel().SetFilter(
@@ -145,5 +147,37 @@ func (c *CosmosDB) dequeueTask(ctx context.Context, node models.Node, jobID stri
 		return err
 	}
 
+	err = c.UpdateNodeTaskStatus(ctx, node, jobID, status)
+	if err != nil {
+		// TODO: logging
+		fmt.Printf("failed to create task status: %s\n", err)
+	}
+
+	return nil
+}
+
+func (c *CosmosDB) UpdateNodeTaskStatus(ctx context.Context, node models.Node, jobID string, status models.TaskStatus) error {
+	nodeName := node.String()
+
+	spew.Dump(status)
+	opts := options.Update().SetUpsert(true)
+	_, err := c.nodeTaskStatusCollection.UpdateOne(
+		ctx,
+		bson.D{
+			{"node_name", nodeName},
+			{"job_id", jobID},
+		},
+		bson.D{
+			{"$set", bson.D{
+				{"status", status},
+				{"last_updated", time.Now()},
+				{"node_name", nodeName},
+				{"job_id", jobID}}},
+		},
+		opts,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update node task status: %w", err)
+	}
 	return nil
 }

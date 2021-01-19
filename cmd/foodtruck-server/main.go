@@ -34,7 +34,8 @@ func main() {
 
 	jobsCollection := c.Database(config.Database).Collection(config.JobsCollection)
 	nodeTasksCollection := c.Database(config.Database).Collection(config.NodeTasksCollection)
-	db := storage.CosmosDBImpl(jobsCollection, nodeTasksCollection)
+	nodeTaskStatusCollection := c.Database(config.Database).Collection("node_task_status")
+	db := storage.CosmosDBImpl(jobsCollection, nodeTasksCollection, nodeTaskStatusCollection)
 
 	e := echo.New()
 	e.Use(middleware.Logger())

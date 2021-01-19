@@ -9,7 +9,6 @@ import (
 	"github.com/chef/foodtruck/pkg/foodtruckhttp"
 	"github.com/chef/foodtruck/pkg/models"
 	"github.com/chef/foodtruck/pkg/provider"
-	"github.com/davecgh/go-spew/spew"
 )
 
 type Config struct {
@@ -43,7 +42,6 @@ func main() {
 				fmt.Fprintf(os.Stderr, "[Error]: %s\n", err)
 				continue
 			}
-			spew.Dump(task)
 			fmt.Println("Running task")
 			err = client.UpdateNodeTaskStatus(ctx, models.NodeTaskStatus{
 				JobID:  task.JobID,

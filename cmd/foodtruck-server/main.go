@@ -21,19 +21,35 @@ const (
 	mongoDBDatabaseEnvVarName         = "MONGODB_DATABASE"
 )
 
+type Config struct {
+	Database string
+	Auth     struct {
+		// Auth for the nodes endpoints
+		Nodes struct {
+			ApiKey string
+		}
+
+		// Auth for the admin endpoints
+		Admin struct {
+			ApiKey string
+		}
+	}
+}
+
 func main() {
 
 	config := Config{
-		Database:            "testdb1",
-		JobsCollection:      "jobs",
-		NodeTasksCollection: "node_tasks",
+		Database: "testdb1",
 	}
+
 	ctx := context.Background()
 	c := connect()
 	defer c.Disconnect(ctx)
 
-	jobsCollection := c.Database(config.Database).Collection(config.JobsCollection)
-	nodeTasksCollection := c.Database(config.Database).Collection(config.NodeTasksCollection)
+	initialzeCollections(ctx, c.Database(config.Database))
+
+	jobsCollection := c.Database(config.Database).Collection("jobs")
+	nodeTasksCollection := c.Database(config.Database).Collection("node_tasks")
 	nodeTaskStatusCollection := c.Database(config.Database).Collection("node_task_status")
 	db := storage.CosmosDBImpl(jobsCollection, nodeTasksCollection, nodeTaskStatusCollection)
 

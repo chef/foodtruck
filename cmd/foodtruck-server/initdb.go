@@ -20,23 +20,24 @@ const (
 )
 
 func initialzeCollections(ctx context.Context, db *mongo.Database) {
-	err := createCollection(ctx, db, "jobs", "_id")
+	err := createCollection(ctx, db, "jobs", "_id", true)
 	if err != nil {
 		fmt.Printf("Error creating collection(jobs): %v\n", err)
 	}
 
-	err = createCollection(ctx, db, "node_tasks", "node_name")
+	err = createCollection(ctx, db, "node_tasks", "node_name", true)
 	if err != nil {
 		fmt.Printf("Error creating collection(node_tasks): %v\n", err)
 	}
 
-	err = createCollection(ctx, db, "node_task_status", "node_name", "job_id")
+	err = createCollection(ctx, db, "node_task_status", "node_name", false, "job_id")
 	if err != nil {
 		fmt.Printf("Error creating collection(node_name): %v\n", err)
 	}
 }
 
-func createCollection(ctx context.Context, db *mongo.Database, collectionName string, shardKey string, indexes ...string) error {
+func createCollection(ctx context.Context, db *mongo.Database, collectionName string, shardKey string, shardKeyUnique bool,
+	indexes ...string) error {
 	res := db.RunCommand(ctx,
 		CreateCollectionCommand{
 			CustomAction: "CreateCollection",
@@ -52,17 +53,19 @@ func createCollection(ctx context.Context, db *mongo.Database, collectionName st
 
 	indexView := db.Collection(collectionName).Indexes()
 
-	indexOpts := &options.IndexOptions{}
-	indexOpts.SetUnique(true)
-	_, err := indexView.CreateOne(ctx, mongo.IndexModel{
-		Keys:    bson.D{{shardKey, 1}},
-		Options: indexOpts,
-	})
+	if shardKeyUnique {
+		indexOpts := &options.IndexOptions{}
+		indexOpts.SetUnique(true)
+		_, err := indexView.CreateOne(ctx, mongo.IndexModel{
+			Keys:    bson.D{{shardKey, 1}},
+			Options: indexOpts,
+		})
 
-	if err != nil {
-		cmdErr, ok := err.(mongo.CommandError)
-		if !ok || cmdErr.Code != namespaceExistsErrCode {
-			return err
+		if err != nil {
+			cmdErr, ok := err.(mongo.CommandError)
+			if !ok || cmdErr.Code != namespaceExistsErrCode {
+				return err
+			}
 		}
 	}
 

@@ -14,7 +14,7 @@ func initNodesRouter(e *echo.Echo, db storage.Driver) {
 		db: db,
 	}
 	nodesRoutes := e.Group("/organizations/:org/foodtruck/nodes/:name")
-	nodesRoutes.GET("/next", handler.GetNextTask)
+	nodesRoutes.PUT("/tasks/next", handler.GetNextTask)
 }
 
 type NodeRoutesHandler struct {

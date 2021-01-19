@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -71,6 +72,9 @@ func (c *CosmosDB) ListJobs(ctx context.Context) error {
 func (c *CosmosDB) GetNodeTasks(ctx context.Context, node models.Node) ([]models.NodeTask, error) {
 	cursor := c.nodeTasksCollection.FindOne(ctx, bson.D{{"node_name", node.String()}})
 	if err := cursor.Err(); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, models.ErrNoTasks
+		}
 		return nil, fmt.Errorf("failed to query for node tasks: %w", err)
 	}
 	var result CosmosNodeTask

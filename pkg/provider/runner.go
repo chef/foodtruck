@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"os/exec"
 )
 
@@ -42,11 +43,12 @@ func (p *ExecRunner) Run(ctx context.Context, providerName string, spec json.Raw
 		io.Copy(stdin, bytes.NewReader(spec))
 	}()
 
-	out, err := cmd.CombinedOutput()
-	if err != nil {
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+
+	if err := cmd.Run(); err != nil {
 		return err
 	}
-	fmt.Printf("%s\n", out)
 
 	return nil
 }

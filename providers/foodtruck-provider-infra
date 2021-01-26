@@ -1,20 +1,44 @@
 #!/bin/env bash
 
-set -xe
+set -e
 
-echo "Running a provider"
-tmpdir="$(mktemp -d)"
+chef_client_args=(
+  "chef-client"
+  "-z"
+  "--log-level" "debug"
+  "-L" "/tmp/chefrun"
+  "--minimal-ohai"
+  "--chef-license" "accept"
+)
+
+jobSpec=$(</dev/stdin)
+url="$(echo $jobSpec | jq -r .url)"
+json_params="$(echo $jobSpec | jq -r .json_params)"
+echo "Job Specification:"
+echo "------------------"
+echo "Policy URL: ${url}"
+if [[ "$json_params" != "null" ]]; then
+  echo "JSON Params: ${json_params}"
+  chef_client_args+=(
+    "-j" '<(echo $json_params)'
+  )
+fi
+echo
+echo
+
+echo "Running a provider:"
+echo "-------------------"
+tmpdir="$(mktemp -d -t foodtruck.tmp.XXXXXXXXXX)"
 
 cd "$tmpdir"
 echo "cd $tmpdir"
-url="$(jq -r .url)"
 echo "Downloading: $url"
 curl -o policy.tar.gz "$url"
 echo "Unpacking policy"
 tar -xvzf policy.tar.gz
 cd out
 
-echo "Running chef-client -z"
-chef-client -z --chef-license accept
+echo Running chef-client "${chef_client_args[@]}"
+eval ${chef_client_args[*]}
 
 exit 0

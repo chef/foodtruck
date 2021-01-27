@@ -6,7 +6,6 @@ chef_client_args=(
   "chef-client"
   "-z"
   "--log-level" "debug"
-  "-L" "/tmp/chefrun"
   "--minimal-ohai"
   "--chef-license" "accept"
 )

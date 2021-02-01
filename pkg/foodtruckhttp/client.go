@@ -42,7 +42,7 @@ func NewClient(baseURL string, node models.Node, apiKey string) *Client {
 }
 
 func (c *Client) GetNextTask(ctx context.Context) (models.NodeTask, error) {
-	resp, err := c.put(ctx, "/tasks/next", nil)
+	resp, err := c.post(ctx, "/tasks/next", nil)
 	if err != nil {
 		return models.NodeTask{}, err
 	}
@@ -64,7 +64,7 @@ func (c *Client) GetNextTask(ctx context.Context) (models.NodeTask, error) {
 
 func (c *Client) UpdateNodeTaskStatus(ctx context.Context, nodeTaskStatus models.NodeTaskStatus) error {
 	reqBody, err := json.Marshal(nodeTaskStatus)
-	resp, err := c.put(ctx, "/tasks/status", bytes.NewReader(reqBody))
+	resp, err := c.post(ctx, "/tasks/status", bytes.NewReader(reqBody))
 	if err != nil {
 		return err
 	}
@@ -77,9 +77,9 @@ func (c *Client) UpdateNodeTaskStatus(ctx context.Context, nodeTaskStatus models
 	return fmt.Errorf("Request failed")
 }
 
-func (c *Client) put(ctx context.Context, requestURL string, body io.Reader) (*http.Response, error) {
+func (c *Client) post(ctx context.Context, requestURL string, body io.Reader) (*http.Response, error) {
 	u := c.BaseURL + requestURL
-	req, err := http.NewRequest("PUT", u, body)
+	req, err := http.NewRequest("POST", u, body)
 	if err != nil {
 		return nil, err
 	}

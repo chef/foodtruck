@@ -103,7 +103,13 @@ func main() {
 	fmt.Fprintf(os.Stderr, "Node %s checking into %s on interval %s\n", config.Node, config.BaseURL,
 		time.Duration(config.Interval).String())
 
-	client := foodtruckhttp.NewClient(config.BaseURL, config.Node, config.AuthConfig.AuthProvider)
+	authProvider, err := config.AuthConfig.AuthProvider.InitializeAuthProvider(config.Node.Name)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to initialize auth provider: %v\n", err)
+		os.Exit(1)
+	}
+
+	client := foodtruckhttp.NewClient(config.BaseURL, config.Node, authProvider)
 	runner := provider.NewExecRunner()
 	for {
 		select {

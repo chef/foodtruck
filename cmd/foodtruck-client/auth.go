@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 
 	"github.com/chef/foodtruck/pkg/foodtruckhttp"
@@ -14,26 +12,21 @@ import (
 var ErrInvalidAuthProvider = errors.New("invalid auth provider type")
 var ErrMissingParameters = errors.New("auth provider missing parameter")
 
-type ApiKeyAuthProvider struct {
-	Type string `json:"type"`
-	Key  string `json:"key"`
+type AuthProviderFactory interface {
+	InitializeAuthProvider(nodeName string) (foodtruckhttp.AuthProvider, error)
 }
 
-func (p *ApiKeyAuthProvider) Name() string { return "apiKey" }
-
-func (p *ApiKeyAuthProvider) NewPostRequest(requestURL string, body io.Reader) (*http.Request, error) {
-	req, err := http.NewRequest("POST", requestURL, body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+p.Key)
-
-	return req, nil
+type apiKeyAuthProviderFactory struct {
+	Key string `json:"key"`
 }
 
-func (p *ApiKeyAuthProvider) UnmarshalJSON(b []byte) error {
+func (p *apiKeyAuthProviderFactory) InitializeAuthProvider(nodeName string) (foodtruckhttp.AuthProvider, error) {
+	return &foodtruckhttp.ApiKeyAuthProvider{
+		Key: p.Key,
+	}, nil
+}
+
+func (p *apiKeyAuthProviderFactory) UnmarshalJSON(b []byte) error {
 	params := struct {
 		Key string `json:"key"`
 	}{}
@@ -55,7 +48,7 @@ func (p *ApiKeyAuthProvider) UnmarshalJSON(b []byte) error {
 }
 
 type AuthConfig struct {
-	AuthProvider foodtruckhttp.AuthProvider
+	AuthProvider AuthProviderFactory
 }
 
 func (ac *AuthConfig) UnmarshalJSON(b []byte) error {
@@ -70,7 +63,7 @@ func (ac *AuthConfig) UnmarshalJSON(b []byte) error {
 
 	switch providerType.Type {
 	case "apiKey":
-		p := ApiKeyAuthProvider{}
+		p := apiKeyAuthProviderFactory{}
 		if err := json.Unmarshal(b, &p); err != nil {
 			return err
 		}

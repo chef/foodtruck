@@ -28,7 +28,6 @@ func TestAuthConfigApiKey(t *testing.T) {
 		ac := AuthConfig{}
 		err := unmarshal(`{"type": "apiKey", "key": "asdf"}`, &ac)
 		require.NoError(t, err)
-		require.Equal(t, "apiKey", ac.AuthProvider.Name())
 	})
 
 	t.Run("key in environment", func(t *testing.T) {
@@ -38,14 +37,12 @@ func TestAuthConfigApiKey(t *testing.T) {
 		ac := AuthConfig{}
 		err := unmarshal(`{"type": "apiKey"}`, &ac)
 		require.NoError(t, err)
-		require.Equal(t, "apiKey", ac.AuthProvider.Name())
 	})
 
 	t.Run("key in json", func(t *testing.T) {
 		ac := AuthConfig{}
 		err := unmarshal(`{"type": "apiKey", "key": "asdf"}`, &ac)
 		require.NoError(t, err)
-		require.Equal(t, "apiKey", ac.AuthProvider.Name())
 	})
 
 }

@@ -120,7 +120,7 @@ func connect() *mongo.Client {
 		log.Fatal("missing environment variable: ", mongoDBConnectionStringEnvVarName)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
 
 	clientOptions := options.Client().ApplyURI(mongoDBConnectionString).SetDirect(true)
@@ -133,7 +133,7 @@ func connect() *mongo.Client {
 	}
 	err = c.Ping(ctx, nil)
 	if err != nil {
-		log.Fatalf("unable to connect %v", err)
+		log.Fatalf("unable to connect to mongodb %v", err)
 	}
 	return c
 }

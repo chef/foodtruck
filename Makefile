@@ -1,7 +1,7 @@
 GOOS = $(shell go env GOOS)
 
 server:
-	go build -o bin/foodtruck-server -a -ldflags '-extldflags "-static"' ./cmd/foodtruck-server
+	CGO_ENABLED=0 go build -o bin/foodtruck-server -a -ldflags '-extldflags "-static"' ./cmd/foodtruck-server
 
 client-all: client-linux client-windows client-darwin client-solaris client-aix
 

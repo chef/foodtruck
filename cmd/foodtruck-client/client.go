@@ -109,7 +109,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	client := foodtruckhttp.NewClient(config.BaseURL, config.Node, authProvider)
+	sslNoVerify := os.Getenv("SSL_NO_VERIFY") == "true"
+
+	client := foodtruckhttp.NewClient(config.BaseURL, config.Node, authProvider, sslNoVerify)
 	runner := provider.NewExecRunner()
 	for {
 		select {

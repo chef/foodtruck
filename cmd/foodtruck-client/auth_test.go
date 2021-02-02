@@ -38,13 +38,21 @@ func TestAuthConfigApiKey(t *testing.T) {
 		err := unmarshal(`{"type": "apiKey"}`, &ac)
 		require.NoError(t, err)
 	})
+}
+
+func TestChefServerApiKey(t *testing.T) {
+	t.Run("missing key parameter", func(t *testing.T) {
+		ac := AuthConfig{}
+		err := unmarshal(`{"type": "chefServer"}`, &ac)
+		require.Error(t, err)
+		require.True(t, errors.Is(err, ErrMissingParameters))
+	})
 
 	t.Run("key in json", func(t *testing.T) {
 		ac := AuthConfig{}
-		err := unmarshal(`{"type": "apiKey", "key": "asdf"}`, &ac)
+		err := unmarshal(`{"type": "chefServer", "key": "/path/to/key.pem"}`, &ac)
 		require.NoError(t, err)
 	})
-
 }
 
 func unmarshal(s string, v interface{}) error {

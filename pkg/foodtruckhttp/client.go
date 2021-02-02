@@ -3,6 +3,7 @@ package foodtruckhttp
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,13 +28,14 @@ type AuthProvider interface {
 	NewPostRequest(requestURL string, body io.Reader) (*http.Request, error)
 }
 
-func NewClient(baseURL string, node models.Node, authProvider AuthProvider) *Client {
+func NewClient(baseURL string, node models.Node, authProvider AuthProvider, sslNoVerify bool) *Client {
 	tr := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		Dial: (&net.Dialer{
 			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,
 		}).Dial,
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: sslNoVerify},
 	}
 	return &Client{
 		BaseURL:      fmt.Sprintf("%s/organizations/%s/foodtruck/nodes/%s", baseURL, node.Organization, node.Name),
@@ -52,6 +54,7 @@ func (c *Client) GetNextTask(ctx context.Context) (models.NodeTask, error) {
 	if err != nil {
 		return models.NodeTask{}, err
 	}
+
 	if resp.StatusCode == 200 {
 		d := json.NewDecoder(resp.Body)
 		task := models.NodeTask{}

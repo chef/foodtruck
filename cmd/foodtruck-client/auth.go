@@ -47,6 +47,31 @@ func (p *apiKeyAuthProviderFactory) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+type chefServerAuthProviderFactory struct {
+	// KeyPath is the path to the private client key
+	KeyPath string `json:"key_path"`
+}
+
+func (p *chefServerAuthProviderFactory) InitializeAuthProvider(nodeName string) (foodtruckhttp.AuthProvider, error) {
+	return foodtruckhttp.NewChefServerAuthProvider(nodeName, p.KeyPath)
+}
+
+func (p *chefServerAuthProviderFactory) UnmarshalJSON(b []byte) error {
+	params := struct {
+		Key string `json:"key_path"`
+	}{}
+	if err := json.Unmarshal(b, &params); err != nil {
+		return err
+	}
+
+	p.KeyPath = params.Key
+
+	if p.KeyPath == "" {
+		return fmt.Errorf("%w: must provide \"key\"", ErrMissingParameters)
+	}
+	return nil
+}
+
 type AuthConfig struct {
 	AuthProvider AuthProviderFactory
 }
@@ -64,6 +89,12 @@ func (ac *AuthConfig) UnmarshalJSON(b []byte) error {
 	switch providerType.Type {
 	case "apiKey":
 		p := apiKeyAuthProviderFactory{}
+		if err := json.Unmarshal(b, &p); err != nil {
+			return err
+		}
+		ac.AuthProvider = &p
+	case "chefServer":
+		p := chefServerAuthProviderFactory{}
 		if err := json.Unmarshal(b, &p); err != nil {
 			return err
 		}

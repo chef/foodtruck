@@ -39,7 +39,7 @@ func (d Duration) MarshalJSON() (b []byte, err error) {
 
 type Config struct {
 	Node          models.Node `json:"node"`
-	APIKey        string      `json:"api_key"`
+	AuthConfig    AuthConfig  `json:"auth"`
 	BaseURL       string      `json:"base_url"`
 	ProvidersPath string      `json:"providers_path"`
 	Interval      Duration    `json:"interval"`
@@ -59,11 +59,6 @@ func (c Config) Validate() {
 
 	if c.BaseURL == "" {
 		fmt.Fprint(os.Stderr, "Base URL must be provided\n")
-		fail = true
-	}
-
-	if c.APIKey == "" {
-		fmt.Fprint(os.Stderr, "API Key must be provided\n")
 		fail = true
 	}
 
@@ -90,13 +85,6 @@ func loadConfig(confPath string) Config {
 		}
 	}
 
-	if config.APIKey == "" {
-		apiKey := os.Getenv("NODES_API_KEY")
-		if apiKey != "" {
-			config.APIKey = apiKey
-		}
-	}
-
 	config.Validate()
 
 	return config
@@ -115,7 +103,15 @@ func main() {
 	fmt.Fprintf(os.Stderr, "Node %s checking into %s on interval %s\n", config.Node, config.BaseURL,
 		time.Duration(config.Interval).String())
 
-	client := foodtruckhttp.NewClient(config.BaseURL, config.Node, config.APIKey)
+	authProvider, err := config.AuthConfig.AuthProvider.InitializeAuthProvider(config.Node.Name)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to initialize auth provider: %v\n", err)
+		os.Exit(1)
+	}
+
+	sslNoVerify := os.Getenv("SSL_NO_VERIFY") == "true"
+
+	client := foodtruckhttp.NewClient(config.BaseURL, config.Node, authProvider, sslNoVerify)
 	runner := provider.NewExecRunner()
 	for {
 		select {

@@ -123,6 +123,38 @@ With the environment variables exported, you can run the server with:
 ./bin/foodtruck-server
 ```
 
+#### Proxying through Chef Server
+The Foodtruck client supports using Chef Server based Authentication. To allow Foodtruck to make use of this, you must proxy
+the endpoints the foodtruck client calls through the Chef Server. This can be done by creating the following files nginx config
+files (Note: you may have to tweak this config for your Chef Server setup):
+
+foodtruck_external.conf:
+```
+location ~ "^/organizations/([^/]+)/foodtruck/nodes/([^/]+)/tasks/(status|next)$" {
+    set $request_org $1;
+    set $request_client $2;
+    access_by_lua_block {
+      local headers = ngx.req.get_headers()
+      if ngx.var.request_client ~= headers.x_ops_userid then
+        ngx.exit(ngx.HTTP_FORBIDDEN)
+      end
+      validator.validate("POST")
+    }
+    proxy_set_header authorization "Bearer THE_NODE_API_KEY";
+
+    proxy_pass http://foodtruck;
+}
+```
+
+foodtruck_upstreams.conf:
+```
+upstream foodtruck {
+  server 127.0.0.1:1323;
+}
+```
+
+These files must be places in `node['private_chef']['nginx']['dir']/etc/addon.d/`.
+
 #### Example Requests
 
 Create a job:
@@ -214,19 +246,42 @@ Running the client requires a JSON config file. For example:
 
 ```
 {
-	"base_url": "http://localhost:1323",
-	"api_key": "1ffd0e1090f0842e0cd26008621bad3902db4bb9",
+	"base_url": "http://host.docker.internal:1323",
+	"auth": {
+		"type": "apiKey",
+		"key": "1ffd0e1090f0842e0cd26008621bad3902db4bb9"
+	},
 	"node": {
 		"org": "neworg",
 		"name": "testnode"
 	},
-	"interval": "1m"
+	"interval": "5s"
+}
+```
+
+If requests for foodtruck are being proxied through a Chef Server, use the
+following config as an example:
+
+```
+{
+	"base_url": "https://a2-dev.test",
+	"auth": {
+		"type": "chefServer",
+		"key_path": "/etc/chef/client.pem"
+	},
+	"node": {
+		"org": "testorg",
+		"name": "testnode"
+	},
+	"interval": "5s"
 }
 ```
 
 - `base_url`: The url used to talk to foodtruck
-- `api_key`: This is the `NODE_API_KEY` that was set on the server. This can also be specified through the 
-  `NODE_API_KEY` environment variable.
+- `auth.type`: One of `chefServer` or `apiKey`
+- `auth.key`: This is the `NODE_API_KEY` that was set on the server. This can also be specified through the 
+  `NODE_API_KEY` environment variable. This is only valid for the `apiKey` type.
+- `auth.key_path`: The path the the chef server client key for the node. This is only valid for the `chefServer` type.
 - `node`: The name of the node along with the organization
 - `interval`: How often to check for jobs. For example `"5s"`, `"5m"`, `"5h"`.
 

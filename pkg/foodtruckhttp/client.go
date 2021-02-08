@@ -3,6 +3,7 @@ package foodtruckhttp
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,24 +17,30 @@ import (
 )
 
 type Client struct {
-	BaseURL    string
-	Node       models.Node
-	httpClient *http.Client
-	apiKey     string
+	BaseURL      string
+	Node         models.Node
+	httpClient   *http.Client
+	authProvider AuthProvider
 }
 
-func NewClient(baseURL string, node models.Node, apiKey string) *Client {
+type AuthProvider interface {
+	Name() string
+	NewPostRequest(requestURL string, body io.Reader) (*http.Request, error)
+}
+
+func NewClient(baseURL string, node models.Node, authProvider AuthProvider, sslNoVerify bool) *Client {
 	tr := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		Dial: (&net.Dialer{
 			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,
 		}).Dial,
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: sslNoVerify},
 	}
 	return &Client{
-		BaseURL: fmt.Sprintf("%s/organizations/%s/foodtruck/nodes/%s", baseURL, node.Organization, node.Name),
-		Node:    node,
-		apiKey:  apiKey,
+		BaseURL:      fmt.Sprintf("%s/organizations/%s/foodtruck/nodes/%s", baseURL, node.Organization, node.Name),
+		Node:         node,
+		authProvider: authProvider,
 		httpClient: &http.Client{
 			Transport: tr,
 			Timeout:   time.Duration(5*time.Second) * time.Second,
@@ -42,11 +49,12 @@ func NewClient(baseURL string, node models.Node, apiKey string) *Client {
 }
 
 func (c *Client) GetNextTask(ctx context.Context) (models.NodeTask, error) {
-	resp, err := c.put(ctx, "/tasks/next", nil)
+	resp, err := c.post(ctx, "/tasks/next", nil)
+	defer resp.Body.Close()
 	if err != nil {
 		return models.NodeTask{}, err
 	}
-	defer resp.Body.Close()
+
 	if resp.StatusCode == 200 {
 		d := json.NewDecoder(resp.Body)
 		task := models.NodeTask{}
@@ -64,11 +72,11 @@ func (c *Client) GetNextTask(ctx context.Context) (models.NodeTask, error) {
 
 func (c *Client) UpdateNodeTaskStatus(ctx context.Context, nodeTaskStatus models.NodeTaskStatus) error {
 	reqBody, err := json.Marshal(nodeTaskStatus)
-	resp, err := c.put(ctx, "/tasks/status", bytes.NewReader(reqBody))
+	resp, err := c.post(ctx, "/tasks/status", bytes.NewReader(reqBody))
+	defer resp.Body.Close()
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
 	if resp.StatusCode == 200 {
 		return nil
 	}
@@ -77,15 +85,12 @@ func (c *Client) UpdateNodeTaskStatus(ctx context.Context, nodeTaskStatus models
 	return fmt.Errorf("Request failed")
 }
 
-func (c *Client) put(ctx context.Context, requestURL string, body io.Reader) (*http.Response, error) {
+func (c *Client) post(ctx context.Context, requestURL string, body io.Reader) (*http.Response, error) {
 	u := c.BaseURL + requestURL
-	req, err := http.NewRequest("PUT", u, body)
+	req, err := c.authProvider.NewPostRequest(u, body)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

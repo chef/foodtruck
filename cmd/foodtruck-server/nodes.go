@@ -21,8 +21,9 @@ func initNodesRouter(e *echo.Echo, db storage.Driver, config Config) {
 		// Probably not ok: this isn't a constant time compare
 		return key == config.Auth.Nodes.ApiKey, nil
 	}))
-	nodesRoutes.PUT("/tasks/next", handler.GetNextTask)
-	nodesRoutes.PUT("/tasks/status", handler.UpdateNodeTaskStatus)
+
+	nodesRoutes.POST("/tasks/next", handler.GetNextTask)
+	nodesRoutes.POST("/tasks/status", handler.UpdateNodeTaskStatus)
 }
 
 type NodeRoutesHandler struct {

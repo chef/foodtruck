@@ -40,4 +40,7 @@ cd out
 echo Running chef-client "${chef_client_args[@]}"
 eval ${chef_client_args[*]}
 
+echo "Cleaning up chef-client cache"
+rm -rf /var/chef/cache
+
 exit 0

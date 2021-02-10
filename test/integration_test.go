@@ -5,10 +5,13 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/chef/foodtruck/pkg/server"
+	"github.com/chef/foodtruck/pkg/storage"
 	"github.com/ory/dockertest/v3"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -16,8 +19,14 @@ import (
 
 var dockerMongo = flag.Bool("docker-mongo", false, "start mongodb in a container")
 var dockerCleanup = flag.Bool("docker-cleanup", true, "cleanup docker containers")
+var isCosmos = flag.Bool("is-cosmos", false, "set to true if you're running against CosmosDB")
+
 var pool *dockertest.Pool
 var resources = []*dockertest.Resource{}
+var dbBackend storage.Driver
+var foodtruckServerAddress string
+var adminAPIKey = "test-admin-api-key"
+var nodesAPIKey = "test-nodes-api-key"
 
 type MongoConnInfo struct {
 	ConnectionString string
@@ -62,6 +71,27 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		Fatalf("failed to connect to mongo: %s", err)
 	}
+
+	var dbBackend storage.Driver
+
+	if *isCosmos {
+		dbBackend, err = storage.InitCosmosDB(context.Background(), c, connInfo.DatabaseName)
+	} else {
+		dbBackend, err = storage.InitMongoDB(context.Background(), c, connInfo.DatabaseName)
+	}
+
+	if err != nil {
+		Fatalf("failed to initialize backend: %s", err)
+	}
+
+	foodtruckServer := server.Setup(dbBackend, adminAPIKey, nodesAPIKey)
+	httpServer := httptest.NewServer(foodtruckServer)
+	foodtruckServerAddress = httpServer.URL
+
+	exitCode := m.Run()
+	httpServer.Close() // nolint: errcheck
+	cleanup()
+	os.Exit(exitCode)
 }
 
 func Fatalf(format string, v ...interface{}) {

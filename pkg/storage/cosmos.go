@@ -117,6 +117,16 @@ func InitCosmosDB(ctx context.Context, c *mongo.Client, databaseName string) (*C
 	return CosmosDBImpl(jobsCollection, nodeTasksCollection, nodeTaskStatusCollection), nil
 }
 
+func InitMongoDB(ctx context.Context, c *mongo.Client, databaseName string) (*CosmosDB, error) {
+	db := c.Database(databaseName)
+
+	jobsCollection := db.Collection("jobs")
+	nodeTasksCollection := db.Collection("node_tasks")
+	nodeTaskStatusCollection := db.Collection("node_task_status")
+
+	return CosmosDBImpl(jobsCollection, nodeTasksCollection, nodeTaskStatusCollection), nil
+}
+
 func CosmosDBImpl(jobsCollection *mongo.Collection, nodeTasksCollection *mongo.Collection, nodeTaskStatusCollection *mongo.Collection) *CosmosDB {
 	return &CosmosDB{
 		jobsCollection:           jobsCollection,

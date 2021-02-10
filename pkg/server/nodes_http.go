@@ -40,6 +40,7 @@ func (h *NodeRoutesHandler) GetNextTask(c echo.Context) error {
 		if errors.Is(err, models.ErrNoTasks) {
 			return &echo.HTTPError{Code: http.StatusNotFound, Message: "no tasks available"}
 		}
+		fmt.Printf("ERROR: %s\n", err)
 		return &echo.HTTPError{Code: http.StatusInternalServerError, Internal: err}
 	}
 

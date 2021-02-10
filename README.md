@@ -214,7 +214,7 @@ Get the job status:
             "job_id": "5ff7686a91072739255a4a35",
             "node_name": "neworg/testnode",
             "status": "failed",
-            "last_update": "0001-01-01T00:00:00Z",
+            "last_updated": "0001-01-01T00:00:00Z",
             "result": {
                 "exit_code": 1,
                 "reason": "exit error"

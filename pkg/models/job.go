@@ -62,9 +62,9 @@ type NodeTaskStatusResult struct {
 }
 
 type NodeTaskStatus struct {
-	JobID      JobID                 `json:"job_id" bson:"job_id"`
-	NodeName   string                `json:"node_name" bson:"node_name"`
-	Status     TaskStatus            `json:"status,omitempty" bson:"status,omitempty"`
-	LastUpdate time.Time             `json:"last_update,omitempty" bson:"last_update,omitempty"`
-	Result     *NodeTaskStatusResult `json:"result,omitempty" bson:"result,omitempty"`
+	JobID       JobID                 `json:"job_id" bson:"job_id"`
+	NodeName    string                `json:"node_name" bson:"node_name"`
+	Status      TaskStatus            `json:"status,omitempty" bson:"status,omitempty"`
+	LastUpdated time.Time             `json:"last_updated,omitempty" bson:"last_updated,omitempty"`
+	Result      *NodeTaskStatusResult `json:"result,omitempty" bson:"result,omitempty"`
 }

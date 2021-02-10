@@ -33,3 +33,32 @@ func Test_getJob_authorization(t *testing.T) {
 			Object()
 	})
 }
+
+func Test_newJob_authorization(t *testing.T) {
+	t.Run("unauthorized with random token", func(t *testing.T) {
+		asUnauthorized(t).POST("/admin/jobs").
+			Expect().
+			JSON().
+			Path("$.message").
+			String().
+			Equal("Unauthorized")
+	})
+
+	t.Run("unauthorized with nodes token", func(t *testing.T) {
+		asNode(t).POST("/admin/jobs").
+			Expect().
+			Status(http.StatusUnauthorized).
+			JSON().
+			Path("$.message").
+			String().
+			Equal("Unauthorized")
+	})
+
+	t.Run("authorized with admin token", func(t *testing.T) {
+		asAdmin(t).POST("/admin/jobs").
+			Expect().
+			Status(http.StatusBadRequest).
+			JSON().
+			Object()
+	})
+}

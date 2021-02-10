@@ -89,19 +89,16 @@ func loadConfig() Config {
 }
 
 func main() {
-
 	config := loadConfig()
 
 	ctx := context.Background()
 	c := connect()
 	defer c.Disconnect(ctx)
 
-	initialzeCollections(ctx, c.Database(config.Database))
-
-	jobsCollection := c.Database(config.Database).Collection("jobs")
-	nodeTasksCollection := c.Database(config.Database).Collection("node_tasks")
-	nodeTaskStatusCollection := c.Database(config.Database).Collection("node_task_status")
-	db := storage.CosmosDBImpl(jobsCollection, nodeTasksCollection, nodeTaskStatusCollection)
+	db, err := storage.InitCosmosDB(ctx, c, config.Database)
+	if err != nil {
+		log.Fatalf("failed to initialize cosmos backend: %s", err)
+	}
 
 	e := server.Setup(db, config.Auth.Admin.ApiKey, config.Auth.Nodes.ApiKey)
 	e.Use(middleware.Logger())
@@ -109,7 +106,6 @@ func main() {
 	p.Use(e)
 
 	e.Logger.Fatal(e.Start(config.ListenAddr))
-
 }
 
 func connect() *mongo.Client {

@@ -24,7 +24,100 @@ type CosmosNodeTask struct {
 	Tasks    []models.NodeTask `bson:"tasks"`
 }
 
-func CosmosDBImpl(jobsCollection *mongo.Collection, nodeTasksCollection *mongo.Collection, nodeTaskStatusCollection *mongo.Collection) Driver {
+type createCollectionCommand struct {
+	CustomAction string `bson:"customAction"`
+	Collection   string `bson:"collection"`
+	ShardKey     string `bson:"shardKey"`
+}
+
+const (
+	namespaceExistsErrCode int32 = 48
+)
+
+func initialzeCollections(ctx context.Context, db *mongo.Database) error {
+	err := createCollection(ctx, db, "jobs", "_id", true)
+	if err != nil {
+		return fmt.Errorf("failed creating collection(jobs): %w", err)
+	}
+
+	err = createCollection(ctx, db, "node_tasks", "node_name", true)
+	if err != nil {
+		return fmt.Errorf("failed creating collection(node_tasks): %w", err)
+	}
+
+	err = createCollection(ctx, db, "node_task_status", "node_name", false, "job_id")
+	if err != nil {
+		return fmt.Errorf("failed creating collection(node_name): %w", err)
+	}
+	return nil
+}
+
+func createCollection(ctx context.Context, db *mongo.Database, collectionName string, shardKey string, shardKeyUnique bool,
+	indexes ...string) error {
+	res := db.RunCommand(ctx,
+		createCollectionCommand{
+			CustomAction: "CreateCollection",
+			Collection:   collectionName,
+			ShardKey:     shardKey,
+		})
+	if err := res.Err(); err != nil {
+		cmdErr, ok := err.(mongo.CommandError)
+		if !ok || cmdErr.Code != namespaceExistsErrCode {
+			return err
+		}
+	}
+
+	indexView := db.Collection(collectionName).Indexes()
+
+	indexOpts := &options.IndexOptions{}
+	if shardKeyUnique {
+		indexOpts.SetUnique(true)
+	}
+
+	_, err := indexView.CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{shardKey, 1}},
+		Options: indexOpts,
+	})
+
+	if err != nil {
+		cmdErr, ok := err.(mongo.CommandError)
+		if !ok || cmdErr.Code != namespaceExistsErrCode {
+			return err
+		}
+	}
+
+	for i := range indexes {
+		_, err := indexView.CreateOne(ctx, mongo.IndexModel{
+			Keys: bson.D{{indexes[i], 1}},
+		})
+
+		if err != nil {
+			cmdErr, ok := err.(mongo.CommandError)
+			if !ok || cmdErr.Code != namespaceExistsErrCode {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func InitCosmosDB(ctx context.Context, c *mongo.Client, databaseName string) (*CosmosDB, error) {
+
+	db := c.Database(databaseName)
+
+	if err := initialzeCollections(ctx, c.Database(databaseName)); err != nil {
+		return nil, err
+	}
+
+	jobsCollection := db.Collection("jobs")
+	nodeTasksCollection := db.Collection("node_tasks")
+	nodeTaskStatusCollection := db.Collection("node_task_status")
+
+	return CosmosDBImpl(jobsCollection, nodeTasksCollection, nodeTaskStatusCollection), nil
+}
+
+func CosmosDBImpl(jobsCollection *mongo.Collection, nodeTasksCollection *mongo.Collection, nodeTaskStatusCollection *mongo.Collection) *CosmosDB {
 	return &CosmosDB{
 		jobsCollection:           jobsCollection,
 		nodeTasksCollection:      nodeTasksCollection,

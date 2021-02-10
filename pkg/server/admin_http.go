@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/chef/foodtruck/pkg/models"
 	"github.com/chef/foodtruck/pkg/storage"
@@ -35,15 +36,27 @@ type AddJobResult struct {
 func (h *AdminRoutesHandler) AddJob(c echo.Context) error {
 	job := models.Job{}
 	if err := c.Bind(&job); err != nil {
-		return err
+		return &echo.HTTPError{Code: http.StatusBadRequest, Message: "invalid request json"}
 	}
 
 	if len(job.Nodes) == 0 {
 		return &echo.HTTPError{Code: http.StatusBadRequest, Message: "no nodes provided"}
 	}
 
-	if job.Task.WindowStart.IsZero() || job.Task.WindowEnd.IsZero() {
-		return &echo.HTTPError{Code: http.StatusBadRequest, Message: "window_start and window_end must be provided"}
+	if job.Task.WindowStart.IsZero() {
+		return &echo.HTTPError{Code: http.StatusBadRequest, Message: "window_start must be provided"}
+	}
+
+	if job.Task.WindowEnd.IsZero() {
+		return &echo.HTTPError{Code: http.StatusBadRequest, Message: "window_end must be provided"}
+	}
+
+	if job.Task.WindowEnd.Before(job.Task.WindowStart) {
+		return &echo.HTTPError{Code: http.StatusBadRequest, Message: "window_end must be after window_start"}
+	}
+
+	if job.Task.WindowEnd.Before(time.Now()) {
+		return &echo.HTTPError{Code: http.StatusBadRequest, Message: "window has already expired"}
 	}
 
 	if job.Task.Provider == "" {

@@ -8,6 +8,30 @@ import (
 	"github.com/labstack/gommon/random"
 )
 
+type newJobRequestNode struct {
+	Org  string `json:"org"`
+	Name string `json:"name"`
+}
+type newJobRequestTask struct {
+	WindowStart time.Time              `json:"window_start,omitempty"`
+	WindowEnd   time.Time              `json:"window_end,omitempty"`
+	Provider    string                 `json:"provider,omitempty"`
+	Spec        map[string]interface{} `json:"spec,omitempty"`
+}
+
+type newJobRequest struct {
+	Nodes []newJobRequestNode `json:"nodes,omitempty"`
+	Task  *newJobRequestTask  `json:"task,omitempty"`
+}
+
+func randomorg() string {
+	return random.String(8, "org"+random.Alphanumeric)
+}
+
+func randomnode() string {
+	return random.String(8, "node"+random.Alphanumeric)
+}
+
 func Test_getJob_authorization(t *testing.T) {
 	t.Run("unauthorized with random token", func(t *testing.T) {
 		asUnauthorized(t).GET("/admin/jobs/jobid").
@@ -64,30 +88,6 @@ func Test_newJob_authorization(t *testing.T) {
 			JSON().
 			Object()
 	})
-}
-
-type newJobRequestNode struct {
-	Org  string `json:"org"`
-	Name string `json:"name"`
-}
-type newJobRequestTask struct {
-	WindowStart time.Time              `json:"window_start,omitempty"`
-	WindowEnd   time.Time              `json:"window_end,omitempty"`
-	Provider    string                 `json:"provider,omitempty"`
-	Spec        map[string]interface{} `json:"spec,omitempty"`
-}
-
-type newJobRequest struct {
-	Nodes []newJobRequestNode `json:"nodes,omitempty"`
-	Task  *newJobRequestTask  `json:"task,omitempty"`
-}
-
-func randomorg() string {
-	return random.String(8, "org"+random.Alphanumeric)
-}
-
-func randomnode() string {
-	return random.String(8, "node"+random.Alphanumeric)
 }
 
 func Test_newJob_validation(t *testing.T) {

@@ -7,9 +7,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/chef/foodtruck/pkg/server"
 	"github.com/chef/foodtruck/pkg/storage"
 	"github.com/labstack/echo-contrib/prometheus"
-	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -103,12 +103,10 @@ func main() {
 	nodeTaskStatusCollection := c.Database(config.Database).Collection("node_task_status")
 	db := storage.CosmosDBImpl(jobsCollection, nodeTasksCollection, nodeTaskStatusCollection)
 
-	e := echo.New()
+	e := server.Setup(db, config.Auth.Admin.ApiKey, config.Auth.Nodes.ApiKey)
 	e.Use(middleware.Logger())
 	p := prometheus.NewPrometheus("foodtruck", nil)
 	p.Use(e)
-	initAdminRouter(e, db, config)
-	initNodesRouter(e, db, config)
 
 	e.Logger.Fatal(e.Start(config.ListenAddr))
 

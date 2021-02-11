@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/chef/foodtruck/pkg/models"
@@ -265,6 +266,7 @@ func (c *CosmosDB) NextNodeTask(ctx context.Context, node models.Node) (models.N
 			}
 			return nextTask, nil
 		} else if time.Now().After(nextTask.WindowEnd) {
+			log.Printf("EXPIRING THING")
 			if err := c.dequeueTask(ctx, node, nextTask.JobID, "expired"); err != nil {
 				return models.NodeTask{}, fmt.Errorf("failed to remove task: %w", err)
 			}
@@ -298,7 +300,7 @@ func (c *CosmosDB) dequeueTask(ctx context.Context, node models.Node, jobID stri
 
 	err = c.UpdateNodeTaskStatus(ctx, node, models.NodeTaskStatus{
 		JobID:  jobID,
-		Status: models.TaskStatusPending,
+		Status: status,
 	})
 	if err != nil {
 		// TODO: logging

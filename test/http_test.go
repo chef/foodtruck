@@ -412,6 +412,35 @@ func Test_getJob(t *testing.T) {
 	})
 }
 
+func Test_getNext_authorization(t *testing.T) {
+	t.Run("unauthorized with random token", func(t *testing.T) {
+		asUnauthorized(t).POST(getNextTaskPath(randomorg(), randomnode())).
+			Expect().
+			JSON().
+			Path("$.message").
+			String().
+			Equal("Unauthorized")
+	})
+
+	t.Run("unauthorized with admin token", func(t *testing.T) {
+		asAdmin(t).POST(getNextTaskPath(randomorg(), randomnode())).
+			Expect().
+			Status(http.StatusUnauthorized).
+			JSON().
+			Path("$.message").
+			String().
+			Equal("Unauthorized")
+	})
+
+	t.Run("authorized with nodes token", func(t *testing.T) {
+		asNode(t).POST(getNextTaskPath(randomorg(), randomnode())).
+			Expect().
+			Status(http.StatusNotFound).
+			JSON().
+			Object()
+	})
+}
+
 func getNextTaskPath(org string, name string) string {
 	return fmt.Sprintf("/organizations/%s/foodtruck/nodes/%s/tasks/next", org, name)
 }

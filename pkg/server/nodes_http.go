@@ -71,7 +71,7 @@ func (h *NodeRoutesHandler) UpdateNodeTaskStatus(c echo.Context) error {
 		return &echo.HTTPError{Code: http.StatusInternalServerError, Internal: err}
 	}
 
-	return nil
+	return c.JSONBlob(http.StatusOK, []byte("{}"))
 }
 
 func nodeFromContext(c echo.Context) (models.Node, error) {

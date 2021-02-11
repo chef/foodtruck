@@ -470,6 +470,7 @@ func Test_getNext(t *testing.T) {
 			JSON().
 			Object()
 
+		resp.Path("$.job_id").String().Equal(jobID)
 		resp.Path("$.provider").String().Equal(jobRequest.Task.Provider)
 		resp.Path("$.spec").Object().Equal(jobRequest.Task.Spec)
 		requireTimeEquals(t, jobRequest.Task.WindowStart, resp.Path("$.window_start").String().Raw())
@@ -574,6 +575,159 @@ func Test_getNext(t *testing.T) {
 				Status(http.StatusOK)
 		}
 	})
+}
+
+func Test_updateNodeStatus_authorization(t *testing.T) {
+	t.Run("unauthorized with random token", func(t *testing.T) {
+		asUnauthorized(t).POST(updateTaskStatusPath(randomorg(), randomnode())).
+			Expect().
+			JSON().
+			Path("$.message").
+			String().
+			Equal("Unauthorized")
+	})
+
+	t.Run("unauthorized with admin token", func(t *testing.T) {
+		asAdmin(t).POST(updateTaskStatusPath(randomorg(), randomnode())).
+			Expect().
+			Status(http.StatusUnauthorized).
+			JSON().
+			Path("$.message").
+			String().
+			Equal("Unauthorized")
+	})
+
+	t.Run("authorized with nodes token", func(t *testing.T) {
+		asNode(t).POST(updateTaskStatusPath(randomorg(), randomnode())).
+			Expect().
+			Status(http.StatusBadRequest).
+			JSON().
+			Object()
+	})
+}
+
+func Test_updateNodeStatus_validation(t *testing.T) {
+	t.Run("requires job id", func(t *testing.T) {
+		asNode(t).POST(updateTaskStatusPath(randomorg(), randomnode())).
+			WithJSON(updateNodeTaskStatusReq{
+				Status: "pending",
+			}).
+			Expect().
+			Status(http.StatusBadRequest).
+			JSON().
+			Path("$.message").
+			String().
+			Equal("job_id must be provided")
+	})
+
+	t.Run("requires valid status", func(t *testing.T) {
+		asNode(t).POST(updateTaskStatusPath(randomorg(), randomnode())).
+			WithJSON(updateNodeTaskStatusReq{
+				JobID: "some-job-id",
+			}).
+			Expect().
+			Status(http.StatusBadRequest).
+			JSON().
+			Path("$.message").
+			String().
+			Contains("status must be one of")
+
+		asNode(t).POST(updateTaskStatusPath(randomorg(), randomnode())).
+			WithJSON(updateNodeTaskStatusReq{
+				JobID:  "some-job-id",
+				Status: "invalid",
+			}).
+			Expect().
+			Status(http.StatusBadRequest).
+			JSON().
+			Path("$.message").
+			String().
+			Contains("status must be one of")
+	})
+}
+
+func Test_updateNodeStatus(t *testing.T) {
+	validStatuses := []string{}
+	for _, status := range validStatuses {
+		t.Run(fmt.Sprintf("accepts status %s", status), func(t *testing.T) {
+			jobRequest := validNewJobRequest(1)
+
+			jobID := asAdmin(t).POST("/admin/jobs").
+				WithJSON(jobRequest).
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Object().Path("$.id").String().Raw()
+
+			asNode(t).POST(getNextTaskPath(jobRequest.Nodes[0].Org, jobRequest.Nodes[0].Name)).
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Object()
+
+			asNode(t).POST(updateTaskStatusPath(jobRequest.Nodes[0].Org, jobRequest.Nodes[0].Name)).
+				WithJSON(updateNodeTaskStatusReq{
+					JobID:  jobID,
+					Status: status,
+				}).
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Object()
+
+			resp := asAdmin(t).GET("/admin/jobs/{jobID}", jobID).
+				WithQuery("fetchStatuses", "true").
+				Expect().
+				Status(http.StatusOK).
+				JSON().Object()
+
+			resp.Path("$.statuses").Array().Length().Equal(1)
+			resp.Path("$.statuses[0].status").String().Equal(status)
+		})
+	}
+
+	t.Run("can pass a result", func(t *testing.T) {
+		jobRequest := validNewJobRequest(1)
+
+		jobID := asAdmin(t).POST("/admin/jobs").
+			WithJSON(jobRequest).
+			Expect().
+			Status(http.StatusOK).
+			JSON().
+			Object().Path("$.id").String().Raw()
+
+		asNode(t).POST(getNextTaskPath(jobRequest.Nodes[0].Org, jobRequest.Nodes[0].Name)).
+			Expect().
+			Status(http.StatusOK).
+			JSON().
+			Object()
+
+		asNode(t).POST(updateTaskStatusPath(jobRequest.Nodes[0].Org, jobRequest.Nodes[0].Name)).
+			WithJSON(updateNodeTaskStatusReq{
+				JobID:  jobID,
+				Status: "failed",
+				Result: &updateNodeTaskStatusResult{
+					ExitCode: 1,
+					Reason:   "a reason",
+				},
+			}).
+			Expect().
+			Status(http.StatusOK).
+			JSON().
+			Object()
+
+		resp := asAdmin(t).GET("/admin/jobs/{jobID}", jobID).
+			WithQuery("fetchStatuses", "true").
+			Expect().
+			Status(http.StatusOK).
+			JSON().Object()
+
+		resp.Path("$.statuses").Array().Length().Equal(1)
+		resp.Path("$.statuses[0].status").String().Equal("failed")
+		resp.Path("$.statuses[0].result.exit_code").Number().Equal(1)
+		resp.Path("$.statuses[0].result.reason").String().Equal("a reason")
+	})
+
 }
 
 func getNextTaskPath(org string, name string) string {

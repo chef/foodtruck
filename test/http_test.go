@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
 	"testing"
 	"time"
@@ -438,6 +439,140 @@ func Test_getNext_authorization(t *testing.T) {
 			Status(http.StatusNotFound).
 			JSON().
 			Object()
+	})
+}
+
+func Test_getNext(t *testing.T) {
+	t.Run("returns 404 when no tasks are available", func(t *testing.T) {
+		asNode(t).POST(getNextTaskPath(randomorg(), randomnode())).
+			Expect().
+			Status(http.StatusNotFound)
+	})
+
+	t.Run("when there is only one task", func(t *testing.T) {
+		jobRequest := validNewJobRequest(1)
+		jobRequest.Task.Spec = map[string]interface{}{
+			"foo": map[string]string{
+				"bar": "baz",
+			},
+		}
+
+		jobID := asAdmin(t).POST("/admin/jobs").
+			WithJSON(jobRequest).
+			Expect().
+			Status(http.StatusOK).
+			JSON().
+			Object().Path("$.id").String().Raw()
+
+		resp := asNode(t).POST(getNextTaskPath(jobRequest.Nodes[0].Org, jobRequest.Nodes[0].Name)).
+			Expect().
+			Status(http.StatusOK).
+			JSON().
+			Object()
+
+		resp.Path("$.provider").String().Equal(jobRequest.Task.Provider)
+		resp.Path("$.spec").Object().Equal(jobRequest.Task.Spec)
+		requireTimeEquals(t, jobRequest.Task.WindowStart, resp.Path("$.window_start").String().Raw())
+		requireTimeEquals(t, jobRequest.Task.WindowEnd, resp.Path("$.window_end").String().Raw())
+
+		asNode(t).POST(updateTaskStatusPath(jobRequest.Nodes[0].Org, jobRequest.Nodes[0].Name)).
+			WithJSON(updateNodeTaskStatusReq{
+				JobID:  jobID,
+				Status: "success",
+			}).
+			Expect().
+			Status(http.StatusOK)
+
+		asNode(t).POST(getNextTaskPath(jobRequest.Nodes[0].Org, jobRequest.Nodes[0].Name)).
+			Expect().
+			Status(http.StatusNotFound).
+			JSON().
+			Object()
+	})
+
+	t.Run("returns 404 if the task expires", func(t *testing.T) {
+		jobRequest := validNewJobRequest(1)
+		jobRequest.Task.WindowEnd = time.Now().Add(100 * time.Millisecond)
+
+		jobID := asAdmin(t).POST("/admin/jobs").
+			WithJSON(jobRequest).
+			Expect().
+			Status(http.StatusOK).
+			JSON().
+			Object().Path("$.id").String().Raw()
+
+		for {
+			if time.Now().After(jobRequest.Task.WindowEnd) {
+				break
+			}
+			time.Sleep(jobRequest.Task.WindowEnd.Sub(time.Now()) + 10*time.Millisecond)
+		}
+
+		asNode(t).POST(getNextTaskPath(jobRequest.Nodes[0].Org, jobRequest.Nodes[0].Name)).
+			Expect().
+			Status(http.StatusNotFound).
+			JSON().Object()
+
+		resp := asAdmin(t).GET("/admin/jobs/{jobID}", jobID).
+			WithQuery("fetchStatuses", "true").
+			Expect().
+			Status(http.StatusOK).
+			JSON().Object()
+
+		resp.Path("$.statuses").Array().Length().Equal(1)
+		resp.Path("$.statuses[0].status").String().Equal("expired")
+	})
+
+	t.Run("orders tasks by start time", func(t *testing.T) {
+		jobRequests := make([]newJobRequest, 10)
+		org := randomorg()
+		node := randomnode()
+
+		for i := range jobRequests {
+			jobRequests[i] = validNewJobRequest(1)
+			jobRequests[i].Nodes[0].Org = org
+			jobRequests[i].Nodes[0].Name = node
+			jobRequests[i].Task.WindowStart = time.Now().Add(time.Duration(-1*len(jobRequests)+i) * time.Hour)
+		}
+
+		shuffledJobRequests := make([]newJobRequest, len(jobRequests))
+		copy(shuffledJobRequests, jobRequests)
+		rand.Shuffle(len(jobRequests), func(i int, j int) {
+			shuffledJobRequests[i], shuffledJobRequests[j] = shuffledJobRequests[j], shuffledJobRequests[i]
+		})
+
+		jobIDs := make([]string, len(jobRequests))
+		for i := range shuffledJobRequests {
+			jobID := asAdmin(t).POST("/admin/jobs").
+				WithJSON(jobRequests[i]).
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Object().Path("$.id").String().Raw()
+
+			jobIDs[i] = jobID
+		}
+
+		for i := range jobRequests {
+			resp := asNode(t).POST(getNextTaskPath(org, node)).
+				Expect().
+				Status(http.StatusOK).
+				JSON().
+				Object()
+
+			jobID := resp.Path("$.job_id").String().Raw()
+			resp.Path("$.provider").String().Equal(jobRequests[i].Task.Provider)
+			requireTimeEquals(t, jobRequests[i].Task.WindowStart, resp.Path("$.window_start").String().Raw())
+			requireTimeEquals(t, jobRequests[i].Task.WindowEnd, resp.Path("$.window_end").String().Raw())
+
+			asNode(t).POST(updateTaskStatusPath(org, node)).
+				WithJSON(updateNodeTaskStatusReq{
+					JobID:  jobID,
+					Status: "success",
+				}).
+				Expect().
+				Status(http.StatusOK)
+		}
 	})
 }
 

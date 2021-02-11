@@ -235,6 +235,9 @@ func (c *CosmosDB) GetNodeTasks(ctx context.Context, node models.Node) ([]models
 func (c *CosmosDB) NextNodeTask(ctx context.Context, node models.Node) (models.NodeTask, error) {
 	cursor := c.nodeTasksCollection.FindOne(ctx, bson.D{{"node_name", node.String()}})
 	if err := cursor.Err(); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return models.NodeTask{}, models.ErrNoTasks
+		}
 		return models.NodeTask{}, fmt.Errorf("failed to query for node tasks: %w", err)
 	}
 	var result CosmosNodeTask

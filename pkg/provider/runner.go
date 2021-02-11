@@ -35,7 +35,7 @@ func (p *ExecRunner) Run(ctx context.Context, providerName string, spec json.Raw
 	cmd := exec.Command(execPath)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	go func() {

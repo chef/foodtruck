@@ -7,9 +7,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/chef/foodtruck/pkg/server"
 	"github.com/chef/foodtruck/pkg/storage"
 	"github.com/labstack/echo-contrib/prometheus"
-	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -89,29 +89,23 @@ func loadConfig() Config {
 }
 
 func main() {
-
 	config := loadConfig()
 
 	ctx := context.Background()
 	c := connect()
 	defer c.Disconnect(ctx)
 
-	initialzeCollections(ctx, c.Database(config.Database))
+	db, err := storage.InitCosmosDB(ctx, c, config.Database)
+	if err != nil {
+		log.Fatalf("failed to initialize cosmos backend: %s", err)
+	}
 
-	jobsCollection := c.Database(config.Database).Collection("jobs")
-	nodeTasksCollection := c.Database(config.Database).Collection("node_tasks")
-	nodeTaskStatusCollection := c.Database(config.Database).Collection("node_task_status")
-	db := storage.CosmosDBImpl(jobsCollection, nodeTasksCollection, nodeTaskStatusCollection)
-
-	e := echo.New()
+	e := server.Setup(db, config.Auth.Admin.ApiKey, config.Auth.Nodes.ApiKey)
 	e.Use(middleware.Logger())
 	p := prometheus.NewPrometheus("foodtruck", nil)
 	p.Use(e)
-	initAdminRouter(e, db, config)
-	initNodesRouter(e, db, config)
 
 	e.Logger.Fatal(e.Start(config.ListenAddr))
-
 }
 
 func connect() *mongo.Client {

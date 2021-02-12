@@ -214,7 +214,7 @@ Get the job status:
             "job_id": "5ff7686a91072739255a4a35",
             "node_name": "neworg/testnode",
             "status": "failed",
-            "last_update": "0001-01-01T00:00:00Z",
+            "last_updated": "0001-01-01T00:00:00Z",
             "result": {
                 "exit_code": 1,
                 "reason": "exit error"
@@ -291,3 +291,29 @@ To run:
 ```
 
 Make certain the providers are in the path.
+
+## Running the Tests
+There is a suite of integration tests available to run. You can run these tests against CosmosDB with the MongoDB API,
+against a running instance of MongoDB, or the tests can spin up a MongoDB instance for you.
+
+To have the tests run against a MongoDB spun up automatically with docker, run:
+```
+go test ./test -docker-mongo
+```
+
+If you do not want the container to automatically be cleaned up, you can pass an additional parameter `-docker-cleanup=false`:
+```
+go test ./test -docker-mongo -docker-cleanup=false
+```
+
+To have the tests run against a CosmosDB instance, export the `MONGODB_CONNECTION_STRING` and `MONGODB_DATABASE_NAME`
+environment variables and run:
+```
+go test ./test -is-cosmos
+```
+
+Similarly, you can run tests against an already running MongoDB instance by first exporting the `MONGODB_CONNECTION_STRING` 
+and `MONGODB_DATABASE_NAME` environment variables and running:
+```
+go test ./test
+```

@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"errors"
@@ -12,14 +12,14 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
-func initNodesRouter(e *echo.Echo, db storage.Driver, config Config) {
+func initNodesRouter(e *echo.Echo, db storage.Driver, nodesAPIKey string) {
 	handler := &NodeRoutesHandler{
 		db: db,
 	}
 	nodesRoutes := e.Group("/organizations/:org/foodtruck/nodes/:name")
 	nodesRoutes.Use(middleware.KeyAuth(func(key string, c echo.Context) (bool, error) {
 		// Probably not ok: this isn't a constant time compare
-		return key == config.Auth.Nodes.ApiKey, nil
+		return key == nodesAPIKey, nil
 	}))
 
 	nodesRoutes.POST("/tasks/next", handler.GetNextTask)
@@ -40,6 +40,7 @@ func (h *NodeRoutesHandler) GetNextTask(c echo.Context) error {
 		if errors.Is(err, models.ErrNoTasks) {
 			return &echo.HTTPError{Code: http.StatusNotFound, Message: "no tasks available"}
 		}
+		fmt.Printf("ERROR: %s\n", err)
 		return &echo.HTTPError{Code: http.StatusInternalServerError, Internal: err}
 	}
 
@@ -70,7 +71,7 @@ func (h *NodeRoutesHandler) UpdateNodeTaskStatus(c echo.Context) error {
 		return &echo.HTTPError{Code: http.StatusInternalServerError, Internal: err}
 	}
 
-	return nil
+	return c.JSONBlob(http.StatusOK, []byte("{}"))
 }
 
 func nodeFromContext(c echo.Context) (models.Node, error) {
